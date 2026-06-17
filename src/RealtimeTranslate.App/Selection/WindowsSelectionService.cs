@@ -14,6 +14,12 @@ public sealed class WindowsSelectionService : ISelectionService
         });
 
         overlay.Show();
-        return await overlay.Completion;
+        var selection = await overlay.Completion;
+        if (selection is not null)
+        {
+            await Task.Delay(120, cancellationToken);
+        }
+
+        return selection;
     }
 }

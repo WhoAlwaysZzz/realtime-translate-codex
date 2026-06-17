@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using RealtimeTranslate.Core.Models;
 using WpfBrushes = System.Windows.Media.Brushes;
@@ -17,6 +18,7 @@ public sealed class SelectionOverlayWindow : Window
     private readonly TaskCompletionSource<ScreenSelection?> _completion = new();
     private WpfPoint? _start;
     private WpfPoint? _current;
+    private ScreenSelection? _result;
 
     public SelectionOverlayWindow()
     {
@@ -75,7 +77,7 @@ public sealed class SelectionOverlayWindow : Window
         _current = e.GetPosition(this);
         ReleaseMouseCapture();
         var selection = ToScreenSelection(_start.Value, _current.Value);
-        _completion.TrySetResult(selection.IsEmpty ? null : selection);
+        _result = selection.IsEmpty ? null : selection;
         Close();
     }
 
@@ -84,7 +86,7 @@ public sealed class SelectionOverlayWindow : Window
         base.OnKeyDown(e);
         if (e.Key == Key.Escape)
         {
-            _completion.TrySetResult(null);
+            _result = null;
             Close();
         }
     }
@@ -92,7 +94,7 @@ public sealed class SelectionOverlayWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        _completion.TrySetResult(null);
+        _completion.TrySetResult(_result);
     }
 
     protected override void OnRender(DrawingContext drawingContext)
@@ -111,11 +113,15 @@ public sealed class SelectionOverlayWindow : Window
     private ScreenSelection ToScreenSelection(WpfPoint start, WpfPoint end)
     {
         var rect = ToRect(start, end);
+        var transform = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformToDevice ?? Matrix.Identity;
+        var topLeft = transform.Transform(new WpfPoint(Left + rect.Left, Top + rect.Top));
+        var bottomRight = transform.Transform(new WpfPoint(Left + rect.Right, Top + rect.Bottom));
+
         return new ScreenSelection(
-            X: (int)Math.Round(Left + rect.X),
-            Y: (int)Math.Round(Top + rect.Y),
-            Width: (int)Math.Round(rect.Width),
-            Height: (int)Math.Round(rect.Height));
+            X: (int)Math.Round(Math.Min(topLeft.X, bottomRight.X)),
+            Y: (int)Math.Round(Math.Min(topLeft.Y, bottomRight.Y)),
+            Width: (int)Math.Round(Math.Abs(bottomRight.X - topLeft.X)),
+            Height: (int)Math.Round(Math.Abs(bottomRight.Y - topLeft.Y)));
     }
 
     private static Rect ToRect(WpfPoint start, WpfPoint end)

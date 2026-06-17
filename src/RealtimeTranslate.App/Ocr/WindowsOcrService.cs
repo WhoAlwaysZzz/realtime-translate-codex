@@ -1,5 +1,6 @@
 using RealtimeTranslate.Core.Models;
 using RealtimeTranslate.Core.Ocr;
+using Windows.Globalization;
 using Windows.Graphics.Imaging;
 using Windows.Media.Ocr;
 using Windows.Storage.Streams;
@@ -8,11 +9,16 @@ namespace RealtimeTranslate.App.Ocr;
 
 public sealed class WindowsOcrService : IOcrService
 {
-    private readonly OcrEngine? _engine = OcrEngine.TryCreateFromUserProfileLanguages();
+    private readonly OcrEngine? _engine = CreateEngine();
 
     public async Task<IReadOnlyList<OcrCandidate>> RecognizeAsync(byte[] imagePng, CancellationToken cancellationToken = default)
     {
-        if (_engine is null || imagePng.Length == 0)
+        if (_engine is null)
+        {
+            throw new InvalidOperationException("Windows OCR engine is unavailable. Install English OCR language support in Windows language settings.");
+        }
+
+        if (imagePng.Length == 0)
         {
             return [];
         }
@@ -38,5 +44,23 @@ public sealed class WindowsOcrService : IOcrService
             .Select(word => new OcrCandidate(word.Text, 1.0))
             .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Text))
             .ToArray();
+    }
+
+    private static OcrEngine? CreateEngine()
+    {
+        var englishLanguage = OcrEngine.AvailableRecognizerLanguages
+            .FirstOrDefault(language => language.LanguageTag.StartsWith("en", StringComparison.OrdinalIgnoreCase));
+        if (englishLanguage is not null)
+        {
+            return OcrEngine.TryCreateFromLanguage(englishLanguage);
+        }
+
+        var enUs = new Language("en-US");
+        if (OcrEngine.IsLanguageSupported(enUs))
+        {
+            return OcrEngine.TryCreateFromLanguage(enUs);
+        }
+
+        return OcrEngine.TryCreateFromUserProfileLanguages();
     }
 }
