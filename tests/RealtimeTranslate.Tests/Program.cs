@@ -8,6 +8,7 @@ var tests = new (string Name, Action Body)[]
 {
     ("normalizer handles punctuation and inflections", NormalizerHandlesPunctuationAndInflections),
     ("dictionary falls back from recognized word to lemma", DictionaryFallsBackFromRecognizedWordToLemma),
+    ("dictionary covers common desktop and developer words", DictionaryCoversCommonDesktopAndDeveloperWords),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
 };
 
@@ -46,6 +47,17 @@ static void DictionaryFallsBackFromRecognizedWordToLemma()
     AssertTrue(result.Found, "expected dictionary hit for lemma 'guess'");
     AssertEqual("guess", result.EntryWord);
     AssertTrue(result.Definitions.Any(d => d.Contains("猜", StringComparison.Ordinal)), "expected Chinese definition for guess");
+}
+
+static void DictionaryCoversCommonDesktopAndDeveloperWords()
+{
+    var dictionary = new EmbeddedDictionaryService();
+
+    foreach (var word in new[] { "project", "dotnet", "realtime", "translate", "cache", "warning", "error" })
+    {
+        var result = dictionary.Lookup(new NormalizedWord(word, word, [word]));
+        AssertTrue(result.Found, $"expected dictionary hit for '{word}'");
+    }
 }
 
 static void RecorderWritesJsonlWithScreenshotAndSelection()

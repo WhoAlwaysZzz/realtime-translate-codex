@@ -8,5 +8,36 @@ return	返回; 归还; 重新出现
 memory	记忆; 回忆
 dream	梦; 梦想
 story	故事
+project	项目; 计划; 工程
+dotnet	.NET 平台; .NET 命令行工具
+realtime	实时; 即时
+translate	翻译; 转换
+translation	翻译; 译文
+cache	缓存
+warning	警告
+error	错误; 误差
+build	构建; 编译
+format	格式; 格式化
+verify	验证; 核实
+clipboard	剪贴板
+screen	屏幕
+window	窗口
+text	文本; 文字
+file	文件
+path	路径
+source	来源; 源代码
+debug	调试
+process	进程; 处理
+runtime	运行时
+language	语言
+selection	选择; 选区
+recognize	识别; 认出
+recognized	已识别的; 认出的
+dictionary	词典; 字典
+offline	离线的
+local	本地的; 局部的
+online	在线的
+record	记录
+archive	归档; 存档
 silent	沉默的; 安静的
 strange	奇怪的; 陌生的
