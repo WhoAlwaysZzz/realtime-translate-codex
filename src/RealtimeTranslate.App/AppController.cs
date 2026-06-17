@@ -23,6 +23,7 @@ public sealed class AppController : IDisposable
     private readonly IOverlayPresenter _overlayPresenter;
     private readonly ILookupRecorder _lookupRecorder;
     private readonly GlobalHotkeyService _hotkeyService;
+    private readonly GlobalRightDragSelectionService _rightDragSelectionService;
     private readonly TrayIconService _trayIconService;
     private bool _isSelecting;
 
@@ -45,8 +46,10 @@ public sealed class AppController : IDisposable
         _overlayPresenter = overlayPresenter;
         _lookupRecorder = lookupRecorder;
         _hotkeyService = new GlobalHotkeyService();
+        _rightDragSelectionService = new GlobalRightDragSelectionService();
         _trayIconService = new TrayIconService(StartSelection, OpenArchiveFolder, Exit);
         _hotkeyService.Pressed += (_, _) => StartSelection();
+        _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
     public void Start()
@@ -55,11 +58,13 @@ public sealed class AppController : IDisposable
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "screenshots"));
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "records"));
         _hotkeyService.Register();
-        _trayIconService.ShowInfo("Realtime Translate Codex", "Ready. Press Ctrl+Shift+X to select a word.");
+        _rightDragSelectionService.Start();
+        _trayIconService.ShowInfo("Realtime Translate Codex", "Ready. Right-drag a word, or press Ctrl+Shift+X.");
     }
 
     public void Dispose()
     {
+        _rightDragSelectionService.Dispose();
         _hotkeyService.Dispose();
         _trayIconService.Dispose();
     }
@@ -74,21 +79,55 @@ public sealed class AppController : IDisposable
         _ = SelectAndLookupAsync();
     }
 
+    private void StartLookup(ScreenSelection selection)
+    {
+        if (_isSelecting)
+        {
+            return;
+        }
+
+        _ = LookupSelectionAsync(selection);
+    }
+
     private async Task SelectAndLookupAsync()
     {
         _isSelecting = true;
-        ScreenSelection? selection = null;
-        CapturedSelection? capture = null;
-        IReadOnlyList<OcrCandidate> candidates = [];
-
         try
         {
-            selection = await _selectionService.SelectAsync();
+            var selection = await _selectionService.SelectAsync();
             if (selection is null)
             {
                 return;
             }
 
+            await LookupSelectionCoreAsync(selection);
+        }
+        finally
+        {
+            _isSelecting = false;
+        }
+    }
+
+    private async Task LookupSelectionAsync(ScreenSelection selection)
+    {
+        _isSelecting = true;
+        try
+        {
+            await LookupSelectionCoreAsync(selection);
+        }
+        finally
+        {
+            _isSelecting = false;
+        }
+    }
+
+    private async Task LookupSelectionCoreAsync(ScreenSelection selection)
+    {
+        CapturedSelection? capture = null;
+        IReadOnlyList<OcrCandidate> candidates = [];
+
+        try
+        {
             capture = await _screenshotService.CaptureAsync(selection);
             candidates = await _ocrService.RecognizeAsync(capture.CroppedImagePng);
             var recognizedText = candidates
@@ -131,12 +170,8 @@ public sealed class AppController : IDisposable
                     [$"查词失败: {message}"],
                     selection,
                     capture?.ScreenshotPath ?? string.Empty,
-                    candidates));
+                candidates));
             }
-        }
-        finally
-        {
-            _isSelecting = false;
         }
     }
 
