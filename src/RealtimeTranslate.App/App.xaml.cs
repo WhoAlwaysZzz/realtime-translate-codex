@@ -1,0 +1,48 @@
+using System.IO;
+using System.Windows;
+using RealtimeTranslate.App.Capture;
+using RealtimeTranslate.App.Ocr;
+using RealtimeTranslate.App.Presentation;
+using RealtimeTranslate.App.Selection;
+using RealtimeTranslate.Core.Dictionary;
+using RealtimeTranslate.Core.Normalization;
+using RealtimeTranslate.Core.Recording;
+
+namespace RealtimeTranslate.App;
+
+public partial class App : System.Windows.Application
+{
+    private AppController? _controller;
+
+    protected override void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        try
+        {
+            var settings = AppSettings.CreateDefault();
+            var dictionaryPath = Path.Combine(AppContext.BaseDirectory, "dictionary.tsv");
+            _controller = new AppController(
+                settings,
+                new WindowsSelectionService(),
+                new WindowsScreenshotService(settings.ArchiveRoot),
+                new WindowsOcrService(),
+                new BasicWordNormalizer(),
+                new EmbeddedDictionaryService(dictionaryPath),
+                new WpfOverlayPresenter(),
+                new JsonlLookupRecorder(settings.ArchiveRoot));
+            _controller.Start();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(ex.Message, "Realtime Translate Codex failed to start", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+        }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _controller?.Dispose();
+        base.OnExit(e);
+    }
+}
