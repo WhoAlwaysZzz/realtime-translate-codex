@@ -7,6 +7,7 @@ using RealtimeTranslate.App.Selection;
 using RealtimeTranslate.Core.Dictionary;
 using RealtimeTranslate.Core.Normalization;
 using RealtimeTranslate.Core.Recording;
+using RealtimeTranslate.Core.Stats;
 
 namespace RealtimeTranslate.App;
 
@@ -31,7 +32,8 @@ public partial class App : System.Windows.Application
                 new BasicWordNormalizer(),
                 new EmbeddedDictionaryService([bundledDictionaryPath, userDictionaryPath]),
                 new WpfOverlayPresenter(),
-                new JsonlLookupRecorder(settings.ArchiveRoot));
+                new JsonlLookupRecorder(settings.ArchiveRoot),
+                new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")));
             _controller.Start();
         }
         catch (Exception ex)

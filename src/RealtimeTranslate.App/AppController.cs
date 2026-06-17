@@ -8,6 +8,7 @@ using RealtimeTranslate.Core.Ocr;
 using RealtimeTranslate.Core.Presentation;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Selection;
+using RealtimeTranslate.Core.Stats;
 using RealtimeTranslate.App.SystemIntegration;
 
 namespace RealtimeTranslate.App;
@@ -22,6 +23,7 @@ public sealed class AppController : IDisposable
     private readonly IDictionaryService _dictionaryService;
     private readonly IOverlayPresenter _overlayPresenter;
     private readonly ILookupRecorder _lookupRecorder;
+    private readonly IWordQueryCounter _queryCounter;
     private readonly GlobalHotkeyService _hotkeyService;
     private readonly GlobalRightDragSelectionService _rightDragSelectionService;
     private readonly TrayIconService _trayIconService;
@@ -35,7 +37,8 @@ public sealed class AppController : IDisposable
         IWordNormalizer wordNormalizer,
         IDictionaryService dictionaryService,
         IOverlayPresenter overlayPresenter,
-        ILookupRecorder lookupRecorder)
+        ILookupRecorder lookupRecorder,
+        IWordQueryCounter queryCounter)
     {
         _settings = settings;
         _selectionService = selectionService;
@@ -45,6 +48,7 @@ public sealed class AppController : IDisposable
         _dictionaryService = dictionaryService;
         _overlayPresenter = overlayPresenter;
         _lookupRecorder = lookupRecorder;
+        _queryCounter = queryCounter;
         _hotkeyService = new GlobalHotkeyService();
         _rightDragSelectionService = new GlobalRightDragSelectionService();
         _trayIconService = new TrayIconService(StartSelection, OpenArchiveFolder, Exit);
@@ -140,7 +144,7 @@ public sealed class AppController : IDisposable
             {
                 var record = BuildRecord(selection, capture.ScreenshotPath, string.Empty, NormalizedWord.Empty, ["未识别到单词"], candidates);
                 SafeRecord(record);
-                _overlayPresenter.Show(new LookupPresentation("未识别到单词", "OCR returned no word", ["请试着框得更贴近单词"], IsError: true));
+                _overlayPresenter.Show(new LookupPresentation("未识别到单词", "OCR returned no word", ["请试着框得更贴近单词"], "请试着框得更贴近单词", 0, IsError: true));
                 return;
             }
 
@@ -148,17 +152,20 @@ public sealed class AppController : IDisposable
             var lookup = _dictionaryService.Lookup(normalized);
             var definitions = lookup.Found ? lookup.Definitions : ["未找到释义"];
             var title = string.IsNullOrWhiteSpace(normalized.DisplayWord) ? recognizedText : normalized.DisplayWord;
+            var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
+            var queryCount = _queryCounter.Increment(countKey);
+            var primaryDefinition = definitions.FirstOrDefault() ?? string.Empty;
             var subtitle = lookup.Found
                 ? $"lemma: {lookup.EntryWord} · OCR: {recognizedText}"
                 : $"lemma: {normalized.Lemma} · OCR: {recognizedText}";
 
             SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates));
-            _overlayPresenter.Show(new LookupPresentation(title, subtitle, definitions, IsError: !lookup.Found));
+            _overlayPresenter.Show(new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found));
         }
         catch (Exception ex)
         {
             var message = ex.Message.Length > 120 ? ex.Message[..120] : ex.Message;
-            _overlayPresenter.Show(new LookupPresentation("查词失败", message, ["失败已被拦截，应用仍在运行"], IsError: true));
+            _overlayPresenter.Show(new LookupPresentation("查词失败", message, ["失败已被拦截，应用仍在运行"], "失败已被拦截", 0, IsError: true));
 
             if (selection is not null)
             {

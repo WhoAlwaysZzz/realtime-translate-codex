@@ -3,6 +3,7 @@ using RealtimeTranslate.Core.Dictionary;
 using RealtimeTranslate.Core.Models;
 using RealtimeTranslate.Core.Normalization;
 using RealtimeTranslate.Core.Recording;
+using RealtimeTranslate.Core.Stats;
 
 var tests = new (string Name, Action Body)[]
 {
@@ -11,6 +12,7 @@ var tests = new (string Name, Action Body)[]
     ("dictionary covers common desktop and developer words", DictionaryCoversCommonDesktopAndDeveloperWords),
     ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
+    ("query counter persists word counts", QueryCounterPersistsWordCounts),
 };
 
 var failed = 0;
@@ -99,6 +101,19 @@ static void RecorderWritesJsonlWithScreenshotAndSelection()
     AssertTrue(
         doc.RootElement.GetProperty("screenshotPath").GetString()!.EndsWith("sample.png", StringComparison.Ordinal),
         "expected screenshot path to be serialized");
+}
+
+static void QueryCounterPersistsWordCounts()
+{
+    var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
+    var path = Path.Combine(root, "records", "query-counts.json");
+
+    var counter = new JsonWordQueryCounter(path);
+    AssertEqual(1, counter.Increment("Project"));
+    AssertEqual(2, counter.Increment("project"));
+
+    var reloaded = new JsonWordQueryCounter(path);
+    AssertEqual(3, reloaded.Increment("project"));
 }
 
 static void AssertEqual<T>(T expected, T actual)
