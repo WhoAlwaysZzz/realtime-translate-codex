@@ -83,7 +83,6 @@ public sealed class GlobalRightDragSelectionService : IDisposable
                     if (_dragging)
                     {
                         UpdateOverlay(ToSelection(_start.Value, point));
-                        return new IntPtr(1);
                     }
                 }
                 break;
@@ -98,7 +97,6 @@ public sealed class GlobalRightDragSelectionService : IDisposable
                     if (wasDragging)
                     {
                         CompleteSelection(selection);
-                        return new IntPtr(1);
                     }
                 }
                 break;
@@ -109,7 +107,7 @@ public sealed class GlobalRightDragSelectionService : IDisposable
 
     private void ShowOverlay()
     {
-        WpfApplication.Current.Dispatcher.Invoke(() =>
+        WpfApplication.Current.Dispatcher.BeginInvoke(() =>
         {
             _overlay ??= new PassiveSelectionOverlayWindow();
             if (!_overlay.IsVisible)
@@ -121,7 +119,7 @@ public sealed class GlobalRightDragSelectionService : IDisposable
 
     private void UpdateOverlay(ScreenSelection selection)
     {
-        WpfApplication.Current.Dispatcher.Invoke(() =>
+        WpfApplication.Current.Dispatcher.BeginInvoke(() =>
         {
             _overlay?.UpdateSelection(selection);
         });
@@ -129,7 +127,7 @@ public sealed class GlobalRightDragSelectionService : IDisposable
 
     private void CompleteSelection(ScreenSelection selection)
     {
-        WpfApplication.Current.Dispatcher.Invoke(async () =>
+        WpfApplication.Current.Dispatcher.BeginInvoke(async () =>
         {
             CloseOverlay();
             if (!selection.IsEmpty)
@@ -148,7 +146,7 @@ public sealed class GlobalRightDragSelectionService : IDisposable
 
     private void CloseOverlay()
     {
-        WpfApplication.Current.Dispatcher.Invoke(() =>
+        WpfApplication.Current.Dispatcher.BeginInvoke(() =>
         {
             _overlay?.Close();
             _overlay = null;
