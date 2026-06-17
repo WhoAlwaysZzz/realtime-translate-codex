@@ -27,10 +27,22 @@ The archive contains:
 
 ## Dictionary
 
-The app uses an embedded starter English-Chinese dictionary and also loads `dictionary.tsv` from the app output directory. TSV rows use:
+The app ships with a generated ECDICT-based English-Chinese dictionary at `src/RealtimeTranslate.App/dictionary.tsv`, then loads an optional user override dictionary at:
+
+`%LOCALAPPDATA%\RealtimeTranslateCodex\dictionary.tsv`
+
+Dictionary rows use:
 
 ```text
 word	definition1; definition2
 ```
 
-The file dictionary overrides embedded entries with the same word.
+Load order is: small embedded fallback dictionary, bundled ECDICT dictionary, then the user override dictionary. Later entries override earlier entries with the same word.
+
+To regenerate the bundled dictionary from ECDICT:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\Import-Ecdict.ps1
+```
+
+See `THIRD_PARTY_NOTICES.md` for ECDICT attribution and license details.

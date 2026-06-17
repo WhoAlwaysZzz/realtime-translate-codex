@@ -9,6 +9,7 @@ var tests = new (string Name, Action Body)[]
     ("normalizer handles punctuation and inflections", NormalizerHandlesPunctuationAndInflections),
     ("dictionary falls back from recognized word to lemma", DictionaryFallsBackFromRecognizedWordToLemma),
     ("dictionary covers common desktop and developer words", DictionaryCoversCommonDesktopAndDeveloperWords),
+    ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
 };
 
@@ -60,6 +61,18 @@ static void DictionaryCoversCommonDesktopAndDeveloperWords()
     }
 }
 
+static void BundledDictionaryCoversBroadCommonWords()
+{
+    var dictionaryPath = FindBundledDictionary();
+    var dictionary = new EmbeddedDictionaryService(dictionaryPath);
+
+    foreach (var word in new[] { "abandon", "ability", "contain", "necessary", "mysterious", "conversation", "evidence" })
+    {
+        var result = dictionary.Lookup(new NormalizedWord(word, word, [word]));
+        AssertTrue(result.Found, $"expected bundled dictionary hit for '{word}'");
+    }
+}
+
 static void RecorderWritesJsonlWithScreenshotAndSelection()
 {
     var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
@@ -102,4 +115,21 @@ static void AssertTrue(bool value, string message)
     {
         throw new InvalidOperationException(message);
     }
+}
+
+static string FindBundledDictionary()
+{
+    var directory = new DirectoryInfo(AppContext.BaseDirectory);
+    while (directory is not null)
+    {
+        var path = Path.Combine(directory.FullName, "src", "RealtimeTranslate.App", "dictionary.tsv");
+        if (File.Exists(path))
+        {
+            return path;
+        }
+
+        directory = directory.Parent;
+    }
+
+    throw new FileNotFoundException("Could not locate src/RealtimeTranslate.App/dictionary.tsv");
 }

@@ -21,14 +21,15 @@ public partial class App : System.Windows.Application
         try
         {
             var settings = AppSettings.CreateDefault();
-            var dictionaryPath = Path.Combine(AppContext.BaseDirectory, "dictionary.tsv");
+            var bundledDictionaryPath = Path.Combine(AppContext.BaseDirectory, "dictionary.tsv");
+            var userDictionaryPath = Path.Combine(settings.ArchiveRoot, "dictionary.tsv");
             _controller = new AppController(
                 settings,
                 new WindowsSelectionService(),
                 new WindowsScreenshotService(settings.ArchiveRoot),
                 new WindowsOcrService(),
                 new BasicWordNormalizer(),
-                new EmbeddedDictionaryService(dictionaryPath),
+                new EmbeddedDictionaryService([bundledDictionaryPath, userDictionaryPath]),
                 new WpfOverlayPresenter(),
                 new JsonlLookupRecorder(settings.ArchiveRoot));
             _controller.Start();

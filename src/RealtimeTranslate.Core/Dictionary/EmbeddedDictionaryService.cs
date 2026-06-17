@@ -7,11 +7,19 @@ public sealed class EmbeddedDictionaryService : IDictionaryService
     private readonly Dictionary<string, string[]> _entries;
 
     public EmbeddedDictionaryService(string? tsvPath = null)
+        : this(string.IsNullOrWhiteSpace(tsvPath) ? [] : [tsvPath])
+    {
+    }
+
+    public EmbeddedDictionaryService(IEnumerable<string> tsvPaths)
     {
         _entries = CreateSeedEntries();
-        if (!string.IsNullOrWhiteSpace(tsvPath) && File.Exists(tsvPath))
+        foreach (var tsvPath in tsvPaths.Where(path => !string.IsNullOrWhiteSpace(path)))
         {
-            LoadTsv(tsvPath);
+            if (File.Exists(tsvPath))
+            {
+                LoadTsv(tsvPath);
+            }
         }
     }
 
@@ -111,6 +119,7 @@ public sealed class EmbeddedDictionaryService : IDictionaryService
             }
 
             _entries[parts[0]] = parts[1]
+                .Replace("\\n", "; ", StringComparison.Ordinal)
                 .Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         }
     }
