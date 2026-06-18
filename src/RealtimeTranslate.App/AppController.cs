@@ -32,7 +32,7 @@ public sealed class AppController : IDisposable
     private readonly TrayIconService _trayIconService;
     private UserPreferences _preferences = UserPreferences.Default;
     private CancellationTokenSource? _selectionCancellation;
-    private bool _isSelecting;
+    private bool _selectionInProgress;
     private bool _continuousModeActive;
 
     public AppController(
@@ -96,7 +96,7 @@ public sealed class AppController : IDisposable
 
     private void StartSelection()
     {
-        if (_isSelecting)
+        if (_selectionInProgress)
         {
             return;
         }
@@ -112,7 +112,7 @@ public sealed class AppController : IDisposable
             return;
         }
 
-        if (_isSelecting)
+        if (_selectionInProgress)
         {
             return;
         }
@@ -131,7 +131,7 @@ public sealed class AppController : IDisposable
 
     private void StartLookup(ScreenSelection selection)
     {
-        if (_isSelecting)
+        if (_selectionInProgress)
         {
             return;
         }
@@ -141,23 +141,29 @@ public sealed class AppController : IDisposable
 
     private async Task SelectAndLookupAsync()
     {
-        _isSelecting = true;
-        _selectionCancellation = new CancellationTokenSource();
+        ScreenSelection? selection = null;
+
         try
         {
-            var selection = await _selectionService.SelectAsync(_selectionCancellation.Token);
-            if (selection is null)
-            {
-                return;
-            }
-
-            await LookupSelectionCoreAsync(selection);
+            _selectionInProgress = true;
+            _selectionCancellation = new CancellationTokenSource();
+            selection = await _selectionService.SelectAsync(_selectionCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         finally
         {
-            _selectionCancellation.Dispose();
+            _selectionCancellation?.Dispose();
             _selectionCancellation = null;
-            _isSelecting = false;
+            _selectionInProgress = false;
+            EnsureHotkeyRegistered();
+        }
+
+        if (selection is not null)
+        {
+            _ = LookupSelectionCoreAsync(selection);
         }
     }
 
@@ -167,26 +173,34 @@ public sealed class AppController : IDisposable
         {
             while (_continuousModeActive)
             {
-                _isSelecting = true;
-                _selectionCancellation = new CancellationTokenSource();
+                ScreenSelection? selection = null;
+
                 try
                 {
-                    var selection = await _selectionService.SelectAsync(_selectionCancellation.Token);
-                    if (selection is null)
-                    {
-                        _continuousModeActive = false;
-                        break;
-                    }
-
-                    await LookupSelectionCoreAsync(selection);
+                    _selectionInProgress = true;
+                    _selectionCancellation = new CancellationTokenSource();
+                    selection = await _selectionService.SelectAsync(_selectionCancellation.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    _continuousModeActive = false;
+                    break;
                 }
                 finally
                 {
-                    _selectionCancellation.Dispose();
+                    _selectionCancellation?.Dispose();
                     _selectionCancellation = null;
-                    _isSelecting = false;
+                    _selectionInProgress = false;
+                    EnsureHotkeyRegistered();
                 }
 
+                if (selection is null)
+                {
+                    _continuousModeActive = false;
+                    break;
+                }
+
+                _ = LookupSelectionCoreAsync(selection);
                 await Task.Delay(80);
             }
         }
@@ -199,15 +213,7 @@ public sealed class AppController : IDisposable
 
     private async Task LookupSelectionAsync(ScreenSelection selection)
     {
-        _isSelecting = true;
-        try
-        {
-            await LookupSelectionCoreAsync(selection);
-        }
-        finally
-        {
-            _isSelecting = false;
-        }
+        await LookupSelectionCoreAsync(selection);
     }
 
     private async Task LookupSelectionCoreAsync(ScreenSelection selection)
@@ -360,6 +366,23 @@ public sealed class AppController : IDisposable
     private void RegisterHotkey(HotkeyGesture hotkey)
     {
         _hotkeyService.Register(hotkey);
+    }
+
+    private void EnsureHotkeyRegistered()
+    {
+        if (_hotkeyService.RegisteredHotkey == _preferences.Hotkey)
+        {
+            return;
+        }
+
+        try
+        {
+            RegisterHotkey(_preferences.Hotkey);
+        }
+        catch (Exception ex)
+        {
+            _trayIconService.ShowInfo("Hotkey restore failed", ex.Message);
+        }
     }
 
     private void SavePreferences(UserPreferences preferences)
