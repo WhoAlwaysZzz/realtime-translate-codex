@@ -9,7 +9,9 @@ using RealtimeTranslate.Core.Presentation;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Selection;
 using RealtimeTranslate.Core.Stats;
+using RealtimeTranslate.App.Settings;
 using RealtimeTranslate.App.SystemIntegration;
+using AppSelectionMode = RealtimeTranslate.App.Settings.SelectionMode;
 
 namespace RealtimeTranslate.App;
 
@@ -24,10 +26,14 @@ public sealed class AppController : IDisposable
     private readonly IOverlayPresenter _overlayPresenter;
     private readonly ILookupRecorder _lookupRecorder;
     private readonly IWordQueryCounter _queryCounter;
+    private readonly UserPreferencesStore _preferencesStore;
     private readonly GlobalHotkeyService _hotkeyService;
     private readonly GlobalRightDragSelectionService _rightDragSelectionService;
     private readonly TrayIconService _trayIconService;
+    private UserPreferences _preferences = UserPreferences.Default;
+    private CancellationTokenSource? _selectionCancellation;
     private bool _isSelecting;
+    private bool _continuousModeActive;
 
     public AppController(
         AppSettings settings,
@@ -38,7 +44,8 @@ public sealed class AppController : IDisposable
         IDictionaryService dictionaryService,
         IOverlayPresenter overlayPresenter,
         ILookupRecorder lookupRecorder,
-        IWordQueryCounter queryCounter)
+        IWordQueryCounter queryCounter,
+        UserPreferencesStore preferencesStore)
     {
         _settings = settings;
         _selectionService = selectionService;
@@ -49,10 +56,11 @@ public sealed class AppController : IDisposable
         _overlayPresenter = overlayPresenter;
         _lookupRecorder = lookupRecorder;
         _queryCounter = queryCounter;
+        _preferencesStore = preferencesStore;
         _hotkeyService = new GlobalHotkeyService();
         _rightDragSelectionService = new GlobalRightDragSelectionService();
-        _trayIconService = new TrayIconService(StartSelection, OpenArchiveFolder, Exit);
-        _hotkeyService.Pressed += (_, _) => StartSelection();
+        _trayIconService = new TrayIconService(TriggerSelectionCommand, ConfigureHotkey, SetSelectionMode, OpenArchiveFolder, Exit);
+        _hotkeyService.Pressed += (_, _) => TriggerSelectionCommand();
         _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
@@ -61,9 +69,11 @@ public sealed class AppController : IDisposable
         Directory.CreateDirectory(_settings.ArchiveRoot);
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "screenshots"));
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "records"));
-        _hotkeyService.Register();
+        _preferences = _preferencesStore.Load();
+        RegisterHotkey(_preferences.Hotkey);
         _rightDragSelectionService.Start();
-        _trayIconService.ShowInfo("Realtime Translate Codex", "Ready. Right-drag a word, or press Ctrl+Shift+X.");
+        UpdateTray();
+        _trayIconService.ShowInfo("Realtime Translate Codex", $"Ready. Right-drag a word, or press {_preferences.Hotkey}.");
     }
 
     public void Dispose()
@@ -71,6 +81,17 @@ public sealed class AppController : IDisposable
         _rightDragSelectionService.Dispose();
         _hotkeyService.Dispose();
         _trayIconService.Dispose();
+    }
+
+    private void TriggerSelectionCommand()
+    {
+        if (_preferences.SelectionMode == AppSelectionMode.Continuous)
+        {
+            ToggleContinuousSelection();
+            return;
+        }
+
+        StartSelection();
     }
 
     private void StartSelection()
@@ -81,6 +102,31 @@ public sealed class AppController : IDisposable
         }
 
         _ = SelectAndLookupAsync();
+    }
+
+    private void ToggleContinuousSelection()
+    {
+        if (_continuousModeActive)
+        {
+            StopContinuousSelection();
+            return;
+        }
+
+        if (_isSelecting)
+        {
+            return;
+        }
+
+        _continuousModeActive = true;
+        UpdateTray();
+        _ = ContinuousSelectionLoopAsync();
+    }
+
+    private void StopContinuousSelection()
+    {
+        _continuousModeActive = false;
+        _selectionCancellation?.Cancel();
+        UpdateTray();
     }
 
     private void StartLookup(ScreenSelection selection)
@@ -96,9 +142,10 @@ public sealed class AppController : IDisposable
     private async Task SelectAndLookupAsync()
     {
         _isSelecting = true;
+        _selectionCancellation = new CancellationTokenSource();
         try
         {
-            var selection = await _selectionService.SelectAsync();
+            var selection = await _selectionService.SelectAsync(_selectionCancellation.Token);
             if (selection is null)
             {
                 return;
@@ -108,7 +155,45 @@ public sealed class AppController : IDisposable
         }
         finally
         {
+            _selectionCancellation.Dispose();
+            _selectionCancellation = null;
             _isSelecting = false;
+        }
+    }
+
+    private async Task ContinuousSelectionLoopAsync()
+    {
+        try
+        {
+            while (_continuousModeActive)
+            {
+                _isSelecting = true;
+                _selectionCancellation = new CancellationTokenSource();
+                try
+                {
+                    var selection = await _selectionService.SelectAsync(_selectionCancellation.Token);
+                    if (selection is null)
+                    {
+                        _continuousModeActive = false;
+                        break;
+                    }
+
+                    await LookupSelectionCoreAsync(selection);
+                }
+                finally
+                {
+                    _selectionCancellation.Dispose();
+                    _selectionCancellation = null;
+                    _isSelecting = false;
+                }
+
+                await Task.Delay(80);
+            }
+        }
+        finally
+        {
+            _continuousModeActive = false;
+            UpdateTray();
         }
     }
 
@@ -225,5 +310,67 @@ public sealed class AppController : IDisposable
     private void Exit()
     {
         System.Windows.Application.Current.Shutdown();
+    }
+
+    private void ConfigureHotkey()
+    {
+        var window = new HotkeySettingsWindow(_preferences.Hotkey);
+        if (window.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var updated = _preferences with { Hotkey = window.CapturedHotkey };
+            RegisterHotkey(updated.Hotkey);
+            SavePreferences(updated);
+            _trayIconService.ShowInfo("Hotkey updated", $"Current hotkey: {updated.Hotkey}");
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                RegisterHotkey(_preferences.Hotkey);
+            }
+            catch
+            {
+                // The tray menu remains available even if restoring the old global hotkey fails.
+            }
+
+            _trayIconService.ShowInfo("Hotkey update failed", ex.Message);
+        }
+    }
+
+    private void SetSelectionMode(AppSelectionMode selectionMode)
+    {
+        if (_preferences.SelectionMode == selectionMode)
+        {
+            return;
+        }
+
+        if (_continuousModeActive && selectionMode == AppSelectionMode.OneShot)
+        {
+            StopContinuousSelection();
+        }
+
+        SavePreferences(_preferences with { SelectionMode = selectionMode });
+    }
+
+    private void RegisterHotkey(HotkeyGesture hotkey)
+    {
+        _hotkeyService.Register(hotkey);
+    }
+
+    private void SavePreferences(UserPreferences preferences)
+    {
+        _preferences = preferences;
+        _preferencesStore.Save(preferences);
+        UpdateTray();
+    }
+
+    private void UpdateTray()
+    {
+        _trayIconService.UpdatePreferences(_preferences, _continuousModeActive);
     }
 }

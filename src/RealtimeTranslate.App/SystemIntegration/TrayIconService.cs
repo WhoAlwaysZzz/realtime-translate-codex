@@ -1,15 +1,42 @@
 using Forms = System.Windows.Forms;
+using RealtimeTranslate.App.Settings;
+using AppSelectionMode = RealtimeTranslate.App.Settings.SelectionMode;
 
 namespace RealtimeTranslate.App.SystemIntegration;
 
 public sealed class TrayIconService : IDisposable
 {
     private readonly Forms.NotifyIcon _notifyIcon;
+    private readonly Forms.ToolStripMenuItem _selectWordItem;
+    private readonly Forms.ToolStripMenuItem _configureHotkeyItem;
+    private readonly Forms.ToolStripMenuItem _oneShotModeItem;
+    private readonly Forms.ToolStripMenuItem _continuousModeItem;
 
-    public TrayIconService(Action selectWord, Action openArchive, Action exit)
+    public TrayIconService(
+        Action selectWord,
+        Action configureHotkey,
+        Action<AppSelectionMode> setSelectionMode,
+        Action openArchive,
+        Action exit)
     {
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Select word (Ctrl+Shift+X)", null, (_, _) => selectWord());
+        _selectWordItem = new Forms.ToolStripMenuItem("Select word", null, (_, _) => selectWord());
+        _configureHotkeyItem = new Forms.ToolStripMenuItem("Configure hotkey...", null, (_, _) => configureHotkey());
+        _oneShotModeItem = new Forms.ToolStripMenuItem("One-shot selection", null, (_, _) => setSelectionMode(AppSelectionMode.OneShot))
+        {
+            CheckOnClick = false,
+        };
+        _continuousModeItem = new Forms.ToolStripMenuItem("Continuous selection", null, (_, _) => setSelectionMode(AppSelectionMode.Continuous))
+        {
+            CheckOnClick = false,
+        };
+
+        menu.Items.Add(_selectWordItem);
+        menu.Items.Add(_configureHotkeyItem);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(_oneShotModeItem);
+        menu.Items.Add(_continuousModeItem);
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Open archive folder", null, (_, _) => openArchive());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => exit());
@@ -23,6 +50,17 @@ public sealed class TrayIconService : IDisposable
         };
 
         _notifyIcon.DoubleClick += (_, _) => selectWord();
+    }
+
+    public void UpdatePreferences(UserPreferences preferences, bool continuousModeActive)
+    {
+        _selectWordItem.Text = preferences.SelectionMode == AppSelectionMode.Continuous
+            ? $"Toggle selection mode ({preferences.Hotkey})"
+            : $"Select word ({preferences.Hotkey})";
+        _configureHotkeyItem.Text = $"Configure hotkey... Current: {preferences.Hotkey}";
+        _oneShotModeItem.Checked = preferences.SelectionMode == AppSelectionMode.OneShot;
+        _continuousModeItem.Checked = preferences.SelectionMode == AppSelectionMode.Continuous;
+        _continuousModeItem.Text = continuousModeActive ? "Continuous selection (active)" : "Continuous selection";
     }
 
     public void ShowInfo(string title, string message)
