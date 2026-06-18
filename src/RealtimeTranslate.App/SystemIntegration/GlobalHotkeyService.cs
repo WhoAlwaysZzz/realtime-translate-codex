@@ -7,7 +7,6 @@ namespace RealtimeTranslate.App.SystemIntegration;
 
 public sealed class GlobalHotkeyService : IDisposable
 {
-    private const int HotkeyId = 0x1999;
     private const int WmHotkey = 0x0312;
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
@@ -15,11 +14,13 @@ public sealed class GlobalHotkeyService : IDisposable
     private const uint ModWin = 0x0008;
 
     private readonly HwndSource _source;
+    private readonly int _hotkeyId;
     private bool _registered;
 
-    public GlobalHotkeyService()
+    public GlobalHotkeyService(int hotkeyId, string windowName)
     {
-        _source = new HwndSource(new HwndSourceParameters("RealtimeTranslateCodexHotkey")
+        _hotkeyId = hotkeyId;
+        _source = new HwndSource(new HwndSourceParameters(windowName)
         {
             Width = 0,
             Height = 0,
@@ -37,7 +38,7 @@ public sealed class GlobalHotkeyService : IDisposable
         Unregister();
 
         var virtualKey = (uint)KeyInterop.VirtualKeyFromKey(hotkey.Key);
-        _registered = RegisterHotKey(_source.Handle, HotkeyId, ToNativeModifiers(hotkey.Modifiers), virtualKey);
+        _registered = RegisterHotKey(_source.Handle, _hotkeyId, ToNativeModifiers(hotkey.Modifiers), virtualKey);
         if (!_registered)
         {
             throw new InvalidOperationException($"Unable to register {hotkey} global hotkey.");
@@ -50,7 +51,7 @@ public sealed class GlobalHotkeyService : IDisposable
     {
         if (_registered)
         {
-            UnregisterHotKey(_source.Handle, HotkeyId);
+            UnregisterHotKey(_source.Handle, _hotkeyId);
             _registered = false;
         }
 
@@ -66,7 +67,7 @@ public sealed class GlobalHotkeyService : IDisposable
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WmHotkey && wParam.ToInt32() == HotkeyId)
+        if (msg == WmHotkey && wParam.ToInt32() == _hotkeyId)
         {
             handled = true;
             Pressed?.Invoke(this, EventArgs.Empty);

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using RealtimeTranslate.App.ManualInput;
 using RealtimeTranslate.Core.Capture;
 using RealtimeTranslate.Core.Dictionary;
 using RealtimeTranslate.Core.Models;
@@ -28,12 +29,14 @@ public sealed class AppController : IDisposable
     private readonly IWordQueryCounter _queryCounter;
     private readonly UserPreferencesStore _preferencesStore;
     private readonly GlobalHotkeyService _hotkeyService;
+    private readonly GlobalHotkeyService _manualLookupHotkeyService;
     private readonly GlobalRightDragSelectionService _rightDragSelectionService;
     private readonly TrayIconService _trayIconService;
     private UserPreferences _preferences = UserPreferences.Default;
     private CancellationTokenSource? _selectionCancellation;
     private bool _selectionInProgress;
     private bool _continuousModeActive;
+    private ManualLookupWindow? _manualLookupWindow;
 
     public AppController(
         AppSettings settings,
@@ -57,10 +60,12 @@ public sealed class AppController : IDisposable
         _lookupRecorder = lookupRecorder;
         _queryCounter = queryCounter;
         _preferencesStore = preferencesStore;
-        _hotkeyService = new GlobalHotkeyService();
+        _hotkeyService = new GlobalHotkeyService(0x1999, "RealtimeTranslateCodexSelectionHotkey");
+        _manualLookupHotkeyService = new GlobalHotkeyService(0x199A, "RealtimeTranslateCodexManualLookupHotkey");
         _rightDragSelectionService = new GlobalRightDragSelectionService();
-        _trayIconService = new TrayIconService(TriggerSelectionCommand, ConfigureHotkey, SetSelectionMode, OpenArchiveFolder, Exit);
+        _trayIconService = new TrayIconService(TriggerSelectionCommand, ShowManualLookupWindow, ConfigureHotkey, ConfigureManualLookupHotkey, SetSelectionMode, OpenArchiveFolder, Exit);
         _hotkeyService.Pressed += (_, _) => TriggerSelectionCommand();
+        _manualLookupHotkeyService.Pressed += (_, _) => ShowManualLookupWindow();
         _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
@@ -71,14 +76,16 @@ public sealed class AppController : IDisposable
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "records"));
         _preferences = _preferencesStore.Load();
         RegisterHotkey(_preferences.Hotkey);
+        RegisterManualLookupHotkey(_preferences.ManualLookupHotkey);
         _rightDragSelectionService.Start();
         UpdateTray();
-        _trayIconService.ShowInfo("Realtime Translate Codex", $"Ready. Right-drag a word, or press {_preferences.Hotkey}.");
+        _trayIconService.ShowInfo("Realtime Translate Codex", $"Ready. Right-drag a word, press {_preferences.Hotkey}, or press {_preferences.ManualLookupHotkey} to type.");
     }
 
     public void Dispose()
     {
         _rightDragSelectionService.Dispose();
+        _manualLookupHotkeyService.Dispose();
         _hotkeyService.Dispose();
         _trayIconService.Dispose();
     }
@@ -273,6 +280,34 @@ public sealed class AppController : IDisposable
         }
     }
 
+    private Task LookupManualTextAsync(string text)
+    {
+        var normalized = _wordNormalizer.Normalize(text);
+        if (string.IsNullOrWhiteSpace(normalized.DisplayWord))
+        {
+            _overlayPresenter.Show(new LookupPresentation("未识别到单词", "typed input", ["请输入英文单词"], "请输入英文单词", 0, IsError: true));
+            return Task.CompletedTask;
+        }
+
+        ShowDictionaryResult(normalized, $"typed: {text.Trim()}");
+        return Task.CompletedTask;
+    }
+
+    private void ShowDictionaryResult(NormalizedWord normalized, string source)
+    {
+        var lookup = _dictionaryService.Lookup(normalized);
+        var definitions = lookup.Found ? lookup.Definitions : ["未找到释义"];
+        var title = normalized.DisplayWord;
+        var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
+        var queryCount = _queryCounter.Increment(countKey);
+        var primaryDefinition = definitions.FirstOrDefault() ?? string.Empty;
+        var subtitle = lookup.Found
+            ? $"lemma: {lookup.EntryWord} · {source}"
+            : $"lemma: {normalized.Lemma} · {source}";
+
+        _overlayPresenter.Show(new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found));
+    }
+
     private static LookupRecord BuildRecord(
         ScreenSelection selection,
         string screenshotPath,
@@ -318,6 +353,20 @@ public sealed class AppController : IDisposable
         System.Windows.Application.Current.Shutdown();
     }
 
+    private void ShowManualLookupWindow()
+    {
+        if (_manualLookupWindow is not null && _manualLookupWindow.IsVisible)
+        {
+            _manualLookupWindow.Activate();
+            return;
+        }
+
+        _manualLookupWindow = new ManualLookupWindow();
+        _manualLookupWindow.Closed += (_, _) => _manualLookupWindow = null;
+        _manualLookupWindow.Submitted += (_, text) => _ = LookupManualTextAsync(text);
+        _manualLookupWindow.Show();
+    }
+
     private void ConfigureHotkey()
     {
         var window = new HotkeySettingsWindow(_preferences.Hotkey);
@@ -348,6 +397,36 @@ public sealed class AppController : IDisposable
         }
     }
 
+    private void ConfigureManualLookupHotkey()
+    {
+        var window = new HotkeySettingsWindow(_preferences.ManualLookupHotkey);
+        if (window.ShowDialog() != true)
+        {
+            return;
+        }
+
+        try
+        {
+            var updated = _preferences with { ManualLookupHotkey = window.CapturedHotkey };
+            RegisterManualLookupHotkey(updated.ManualLookupHotkey);
+            SavePreferences(updated);
+            _trayIconService.ShowInfo("Manual lookup hotkey updated", $"Current hotkey: {updated.ManualLookupHotkey}");
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                RegisterManualLookupHotkey(_preferences.ManualLookupHotkey);
+            }
+            catch
+            {
+                // The tray menu remains available even if restoring the old global hotkey fails.
+            }
+
+            _trayIconService.ShowInfo("Manual lookup hotkey update failed", ex.Message);
+        }
+    }
+
     private void SetSelectionMode(AppSelectionMode selectionMode)
     {
         if (_preferences.SelectionMode == selectionMode)
@@ -368,20 +447,35 @@ public sealed class AppController : IDisposable
         _hotkeyService.Register(hotkey);
     }
 
+    private void RegisterManualLookupHotkey(HotkeyGesture hotkey)
+    {
+        _manualLookupHotkeyService.Register(hotkey);
+    }
+
     private void EnsureHotkeyRegistered()
     {
-        if (_hotkeyService.RegisteredHotkey == _preferences.Hotkey)
+        if (_hotkeyService.RegisteredHotkey != _preferences.Hotkey)
         {
-            return;
+            try
+            {
+                RegisterHotkey(_preferences.Hotkey);
+            }
+            catch (Exception ex)
+            {
+                _trayIconService.ShowInfo("Hotkey restore failed", ex.Message);
+            }
         }
 
-        try
+        if (_manualLookupHotkeyService.RegisteredHotkey != _preferences.ManualLookupHotkey)
         {
-            RegisterHotkey(_preferences.Hotkey);
-        }
-        catch (Exception ex)
-        {
-            _trayIconService.ShowInfo("Hotkey restore failed", ex.Message);
+            try
+            {
+                RegisterManualLookupHotkey(_preferences.ManualLookupHotkey);
+            }
+            catch (Exception ex)
+            {
+                _trayIconService.ShowInfo("Manual hotkey restore failed", ex.Message);
+            }
         }
     }
 

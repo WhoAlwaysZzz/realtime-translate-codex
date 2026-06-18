@@ -38,12 +38,22 @@ public sealed class UserPreferencesStore
             var modifiers = Enum.TryParse<ModifierKeys>(dto.HotkeyModifiers, out var parsedModifiers)
                 ? parsedModifiers
                 : HotkeyGesture.Default.Modifiers;
+            var manualKey = Enum.TryParse<Key>(dto.ManualLookupHotkeyKey, out var parsedManualKey)
+                ? parsedManualKey
+                : UserPreferences.Default.ManualLookupHotkey.Key;
+            var manualModifiers = Enum.TryParse<ModifierKeys>(dto.ManualLookupHotkeyModifiers, out var parsedManualModifiers)
+                ? parsedManualModifiers
+                : UserPreferences.Default.ManualLookupHotkey.Modifiers;
             var mode = Enum.TryParse<SelectionMode>(dto.SelectionMode, out var parsedMode)
                 ? parsedMode
                 : SelectionMode.OneShot;
             var hotkey = new HotkeyGesture(key, modifiers);
+            var manualHotkey = new HotkeyGesture(manualKey, manualModifiers);
 
-            return new UserPreferences(hotkey.IsValid ? hotkey : HotkeyGesture.Default, mode);
+            return new UserPreferences(
+                hotkey.IsValid ? hotkey : HotkeyGesture.Default,
+                manualHotkey.IsValid ? manualHotkey : UserPreferences.Default.ManualLookupHotkey,
+                mode);
         }
         catch
         {
@@ -57,9 +67,16 @@ public sealed class UserPreferencesStore
         var dto = new UserPreferencesDto(
             preferences.Hotkey.Key.ToString(),
             preferences.Hotkey.Modifiers.ToString(),
+            preferences.ManualLookupHotkey.Key.ToString(),
+            preferences.ManualLookupHotkey.Modifiers.ToString(),
             preferences.SelectionMode.ToString());
         File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
     }
 
-    private sealed record UserPreferencesDto(string HotkeyKey, string HotkeyModifiers, string SelectionMode);
+    private sealed record UserPreferencesDto(
+        string? HotkeyKey,
+        string? HotkeyModifiers,
+        string? ManualLookupHotkeyKey,
+        string? ManualLookupHotkeyModifiers,
+        string? SelectionMode);
 }
