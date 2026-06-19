@@ -1,5 +1,6 @@
 using System.Text.Json;
 using RealtimeTranslate.Core.Dictionary;
+using RealtimeTranslate.Core.History;
 using RealtimeTranslate.Core.Models;
 using RealtimeTranslate.Core.Normalization;
 using RealtimeTranslate.Core.Recording;
@@ -13,6 +14,7 @@ var tests = new (string Name, Action Body)[]
     ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
+    ("recent lookup store replays newest entries", RecentLookupStoreReplaysNewestEntries),
 };
 
 var failed = 0;
@@ -114,6 +116,27 @@ static void QueryCounterPersistsWordCounts()
 
     var reloaded = new JsonWordQueryCounter(path);
     AssertEqual(3, reloaded.Increment("project"));
+}
+
+static void RecentLookupStoreReplaysNewestEntries()
+{
+    var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
+    var path = Path.Combine(root, "records", "recent-lookups.json");
+    var store = new JsonRecentLookupStore(path, maxEntries: 3);
+
+    store.Add(new LookupPresentation("first", "source", ["一"], "一", 1));
+    store.Add(new LookupPresentation("second", "source", ["二"], "二", 1));
+    store.Add(new LookupPresentation("third", "source", ["三"], "三", 1));
+    store.Add(new LookupPresentation("fourth", "source", ["四"], "四", 1));
+
+    var recent = store.GetRecent(3);
+    AssertEqual(3, recent.Count);
+    AssertEqual("fourth", recent[0].Title);
+    AssertEqual("third", recent[1].Title);
+    AssertEqual("second", recent[2].Title);
+
+    var reloaded = new JsonRecentLookupStore(path, maxEntries: 3);
+    AssertEqual("fourth", reloaded.GetRecent(1)[0].Title);
 }
 
 static void AssertEqual<T>(T expected, T actual)

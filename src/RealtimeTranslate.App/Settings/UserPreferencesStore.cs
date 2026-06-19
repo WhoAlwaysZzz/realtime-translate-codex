@@ -34,25 +34,15 @@ public sealed class UserPreferencesStore
                 return UserPreferences.Default;
             }
 
-            var key = Enum.TryParse<Key>(dto.HotkeyKey, out var parsedKey) ? parsedKey : HotkeyGesture.Default.Key;
-            var modifiers = Enum.TryParse<ModifierKeys>(dto.HotkeyModifiers, out var parsedModifiers)
-                ? parsedModifiers
-                : HotkeyGesture.Default.Modifiers;
-            var manualKey = Enum.TryParse<Key>(dto.ManualLookupHotkeyKey, out var parsedManualKey)
-                ? parsedManualKey
-                : UserPreferences.Default.ManualLookupHotkey.Key;
-            var manualModifiers = Enum.TryParse<ModifierKeys>(dto.ManualLookupHotkeyModifiers, out var parsedManualModifiers)
-                ? parsedManualModifiers
-                : UserPreferences.Default.ManualLookupHotkey.Modifiers;
-            var mode = Enum.TryParse<SelectionMode>(dto.SelectionMode, out var parsedMode)
-                ? parsedMode
-                : SelectionMode.OneShot;
-            var hotkey = new HotkeyGesture(key, modifiers);
-            var manualHotkey = new HotkeyGesture(manualKey, manualModifiers);
+            var hotkey = ParseHotkey(dto.HotkeyKey, dto.HotkeyModifiers, HotkeyGesture.Default);
+            var manualHotkey = ParseHotkey(dto.ManualLookupHotkeyKey, dto.ManualLookupHotkeyModifiers, UserPreferences.Default.ManualLookupHotkey);
+            var recentHotkey = ParseHotkey(dto.RecentLookupsHotkeyKey, dto.RecentLookupsHotkeyModifiers, UserPreferences.Default.RecentLookupsHotkey);
+            var mode = ParseEnum(dto.SelectionMode, SelectionMode.OneShot);
 
             return new UserPreferences(
-                hotkey.IsValid ? hotkey : HotkeyGesture.Default,
-                manualHotkey.IsValid ? manualHotkey : UserPreferences.Default.ManualLookupHotkey,
+                hotkey,
+                manualHotkey,
+                recentHotkey,
                 mode);
         }
         catch
@@ -69,8 +59,26 @@ public sealed class UserPreferencesStore
             preferences.Hotkey.Modifiers.ToString(),
             preferences.ManualLookupHotkey.Key.ToString(),
             preferences.ManualLookupHotkey.Modifiers.ToString(),
+            preferences.RecentLookupsHotkey.Key.ToString(),
+            preferences.RecentLookupsHotkey.Modifiers.ToString(),
             preferences.SelectionMode.ToString());
         File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
+    }
+
+    private static HotkeyGesture ParseHotkey(string? keyValue, string? modifiersValue, HotkeyGesture fallback)
+    {
+        var key = ParseEnum(keyValue, fallback.Key);
+        var modifiers = ParseEnum(modifiersValue, fallback.Modifiers);
+        var hotkey = new HotkeyGesture(key, modifiers);
+        return hotkey.IsValid ? hotkey : fallback;
+    }
+
+    private static TEnum ParseEnum<TEnum>(string? value, TEnum fallback)
+        where TEnum : struct
+    {
+        return Enum.TryParse<TEnum>(value, out var parsed)
+            ? parsed
+            : fallback;
     }
 
     private sealed record UserPreferencesDto(
@@ -78,5 +86,7 @@ public sealed class UserPreferencesStore
         string? HotkeyModifiers,
         string? ManualLookupHotkeyKey,
         string? ManualLookupHotkeyModifiers,
+        string? RecentLookupsHotkeyKey,
+        string? RecentLookupsHotkeyModifiers,
         string? SelectionMode);
 }

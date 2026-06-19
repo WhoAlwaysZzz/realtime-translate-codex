@@ -13,6 +13,7 @@ using RealtimeTranslate.Core.Stats;
 using RealtimeTranslate.App.Settings;
 using RealtimeTranslate.App.SystemIntegration;
 using AppSelectionMode = RealtimeTranslate.App.Settings.SelectionMode;
+using RealtimeTranslate.Core.History;
 
 namespace RealtimeTranslate.App;
 
@@ -25,11 +26,11 @@ public sealed class AppController : IDisposable
     private readonly IWordNormalizer _wordNormalizer;
     private readonly IDictionaryService _dictionaryService;
     private readonly IOverlayPresenter _overlayPresenter;
+    private readonly IRecentLookupStore _recentLookupStore;
     private readonly ILookupRecorder _lookupRecorder;
     private readonly IWordQueryCounter _queryCounter;
     private readonly UserPreferencesStore _preferencesStore;
-    private readonly GlobalHotkeyService _hotkeyService;
-    private readonly GlobalHotkeyService _manualLookupHotkeyService;
+    private readonly Dictionary<LookupCommand, GlobalHotkeyService> _hotkeyServices;
     private readonly GlobalRightDragSelectionService _rightDragSelectionService;
     private readonly TrayIconService _trayIconService;
     private UserPreferences _preferences = UserPreferences.Default;
@@ -46,6 +47,7 @@ public sealed class AppController : IDisposable
         IWordNormalizer wordNormalizer,
         IDictionaryService dictionaryService,
         IOverlayPresenter overlayPresenter,
+        IRecentLookupStore recentLookupStore,
         ILookupRecorder lookupRecorder,
         IWordQueryCounter queryCounter,
         UserPreferencesStore preferencesStore)
@@ -57,15 +59,30 @@ public sealed class AppController : IDisposable
         _wordNormalizer = wordNormalizer;
         _dictionaryService = dictionaryService;
         _overlayPresenter = overlayPresenter;
+        _recentLookupStore = recentLookupStore;
         _lookupRecorder = lookupRecorder;
         _queryCounter = queryCounter;
         _preferencesStore = preferencesStore;
-        _hotkeyService = new GlobalHotkeyService(0x1999, "RealtimeTranslateCodexSelectionHotkey");
-        _manualLookupHotkeyService = new GlobalHotkeyService(0x199A, "RealtimeTranslateCodexManualLookupHotkey");
+        _hotkeyServices = new Dictionary<LookupCommand, GlobalHotkeyService>
+        {
+            [LookupCommand.Selection] = new(0x1999, "RealtimeTranslateCodexSelectionHotkey"),
+            [LookupCommand.ManualLookup] = new(0x199A, "RealtimeTranslateCodexManualLookupHotkey"),
+            [LookupCommand.RecentLookups] = new(0x199B, "RealtimeTranslateCodexRecentLookupsHotkey"),
+        };
         _rightDragSelectionService = new GlobalRightDragSelectionService();
-        _trayIconService = new TrayIconService(TriggerSelectionCommand, ShowManualLookupWindow, ConfigureHotkey, ConfigureManualLookupHotkey, SetSelectionMode, OpenArchiveFolder, Exit);
-        _hotkeyService.Pressed += (_, _) => TriggerSelectionCommand();
-        _manualLookupHotkeyService.Pressed += (_, _) => ShowManualLookupWindow();
+        _trayIconService = new TrayIconService(
+            TriggerSelectionCommand,
+            ShowManualLookupWindow,
+            ShowRecentLookups,
+            ConfigureHotkey,
+            ConfigureManualLookupHotkey,
+            ConfigureRecentLookupsHotkey,
+            SetSelectionMode,
+            OpenArchiveFolder,
+            Exit);
+        _hotkeyServices[LookupCommand.Selection].Pressed += (_, _) => TriggerSelectionCommand();
+        _hotkeyServices[LookupCommand.ManualLookup].Pressed += (_, _) => ShowManualLookupWindow();
+        _hotkeyServices[LookupCommand.RecentLookups].Pressed += (_, _) => ShowRecentLookups();
         _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
@@ -75,18 +92,22 @@ public sealed class AppController : IDisposable
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "screenshots"));
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "records"));
         _preferences = _preferencesStore.Load();
-        RegisterHotkey(_preferences.Hotkey);
-        RegisterManualLookupHotkey(_preferences.ManualLookupHotkey);
+        RegisterCommandHotkeys();
         _rightDragSelectionService.Start();
         UpdateTray();
-        _trayIconService.ShowInfo("Realtime Translate Codex", $"Ready. Right-drag a word, press {_preferences.Hotkey}, or press {_preferences.ManualLookupHotkey} to type.");
+        _trayIconService.ShowInfo(
+            "Realtime Translate Codex",
+            $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, or press {_preferences.RecentLookupsHotkey} to replay recent words.");
     }
 
     public void Dispose()
     {
         _rightDragSelectionService.Dispose();
-        _manualLookupHotkeyService.Dispose();
-        _hotkeyService.Dispose();
+        foreach (var service in _hotkeyServices.Values)
+        {
+            service.Dispose();
+        }
+
         _trayIconService.Dispose();
     }
 
@@ -256,9 +277,10 @@ public sealed class AppController : IDisposable
             var subtitle = lookup.Found
                 ? $"lemma: {lookup.EntryWord} · OCR: {recognizedText}"
                 : $"lemma: {normalized.Lemma} · OCR: {recognizedText}";
+            var presentation = new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found);
 
             SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates));
-            _overlayPresenter.Show(new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found));
+            ShowAndRemember(presentation);
         }
         catch (Exception ex)
         {
@@ -305,7 +327,25 @@ public sealed class AppController : IDisposable
             ? $"lemma: {lookup.EntryWord} · {source}"
             : $"lemma: {normalized.Lemma} · {source}";
 
-        _overlayPresenter.Show(new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found));
+        ShowAndRemember(new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found));
+    }
+
+    private void ShowAndRemember(LookupPresentation presentation)
+    {
+        SafeRemember(presentation);
+        _overlayPresenter.Show(presentation);
+    }
+
+    private void SafeRemember(LookupPresentation presentation)
+    {
+        try
+        {
+            _recentLookupStore.Add(presentation);
+        }
+        catch (Exception ex)
+        {
+            _trayIconService.ShowInfo("Recent lookup save failed", ex.Message);
+        }
     }
 
     private static LookupRecord BuildRecord(
@@ -367,39 +407,49 @@ public sealed class AppController : IDisposable
         _manualLookupWindow.Show();
     }
 
-    private void ConfigureHotkey()
+    private void ShowRecentLookups()
     {
-        var window = new HotkeySettingsWindow(_preferences.Hotkey);
-        if (window.ShowDialog() != true)
-        {
-            return;
-        }
-
+        IReadOnlyList<LookupPresentation> recent;
         try
         {
-            var updated = _preferences with { Hotkey = window.CapturedHotkey };
-            RegisterHotkey(updated.Hotkey);
-            SavePreferences(updated);
-            _trayIconService.ShowInfo("Hotkey updated", $"Current hotkey: {updated.Hotkey}");
+            recent = _recentLookupStore.GetRecent(3);
         }
         catch (Exception ex)
         {
-            try
-            {
-                RegisterHotkey(_preferences.Hotkey);
-            }
-            catch
-            {
-                // The tray menu remains available even if restoring the old global hotkey fails.
-            }
-
-            _trayIconService.ShowInfo("Hotkey update failed", ex.Message);
+            _trayIconService.ShowInfo("Recent lookup replay failed", ex.Message);
+            return;
         }
+
+        if (recent.Count == 0)
+        {
+            _trayIconService.ShowInfo("No recent lookups", "Look up a word first.");
+            return;
+        }
+
+        foreach (var presentation in recent)
+        {
+            _overlayPresenter.Show(presentation);
+        }
+    }
+
+    private void ConfigureHotkey()
+    {
+        ConfigureCommandHotkey(LookupCommand.Selection);
     }
 
     private void ConfigureManualLookupHotkey()
     {
-        var window = new HotkeySettingsWindow(_preferences.ManualLookupHotkey);
+        ConfigureCommandHotkey(LookupCommand.ManualLookup);
+    }
+
+    private void ConfigureRecentLookupsHotkey()
+    {
+        ConfigureCommandHotkey(LookupCommand.RecentLookups);
+    }
+
+    private void ConfigureCommandHotkey(LookupCommand command)
+    {
+        var window = new HotkeySettingsWindow(_preferences.GetHotkey(command));
         if (window.ShowDialog() != true)
         {
             return;
@@ -407,23 +457,23 @@ public sealed class AppController : IDisposable
 
         try
         {
-            var updated = _preferences with { ManualLookupHotkey = window.CapturedHotkey };
-            RegisterManualLookupHotkey(updated.ManualLookupHotkey);
+            var updated = _preferences.WithHotkey(command, window.CapturedHotkey);
+            RegisterCommandHotkey(command, updated.GetHotkey(command));
             SavePreferences(updated);
-            _trayIconService.ShowInfo("Manual lookup hotkey updated", $"Current hotkey: {updated.ManualLookupHotkey}");
+            _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey updated", $"Current hotkey: {updated.GetHotkey(command)}");
         }
         catch (Exception ex)
         {
             try
             {
-                RegisterManualLookupHotkey(_preferences.ManualLookupHotkey);
+                RegisterCommandHotkey(command, _preferences.GetHotkey(command));
             }
             catch
             {
                 // The tray menu remains available even if restoring the old global hotkey fails.
             }
 
-            _trayIconService.ShowInfo("Manual lookup hotkey update failed", ex.Message);
+            _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey update failed", ex.Message);
         }
     }
 
@@ -442,41 +492,50 @@ public sealed class AppController : IDisposable
         SavePreferences(_preferences with { SelectionMode = selectionMode });
     }
 
-    private void RegisterHotkey(HotkeyGesture hotkey)
+    private void RegisterCommandHotkeys()
     {
-        _hotkeyService.Register(hotkey);
+        foreach (var command in Enum.GetValues<LookupCommand>())
+        {
+            RegisterCommandHotkey(command, _preferences.GetHotkey(command));
+        }
     }
 
-    private void RegisterManualLookupHotkey(HotkeyGesture hotkey)
+    private void RegisterCommandHotkey(LookupCommand command, HotkeyGesture hotkey)
     {
-        _manualLookupHotkeyService.Register(hotkey);
+        _hotkeyServices[command].Register(hotkey);
     }
 
     private void EnsureHotkeyRegistered()
     {
-        if (_hotkeyService.RegisteredHotkey != _preferences.Hotkey)
+        foreach (var command in Enum.GetValues<LookupCommand>())
         {
-            try
+            var service = _hotkeyServices[command];
+            var preferredHotkey = _preferences.GetHotkey(command);
+            if (service.RegisteredHotkey == preferredHotkey)
             {
-                RegisterHotkey(_preferences.Hotkey);
+                continue;
             }
-            catch (Exception ex)
-            {
-                _trayIconService.ShowInfo("Hotkey restore failed", ex.Message);
-            }
-        }
 
-        if (_manualLookupHotkeyService.RegisteredHotkey != _preferences.ManualLookupHotkey)
-        {
             try
             {
-                RegisterManualLookupHotkey(_preferences.ManualLookupHotkey);
+                RegisterCommandHotkey(command, preferredHotkey);
             }
             catch (Exception ex)
             {
-                _trayIconService.ShowInfo("Manual hotkey restore failed", ex.Message);
+                _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey restore failed", ex.Message);
             }
         }
+    }
+
+    private static string CommandDisplayName(LookupCommand command)
+    {
+        return command switch
+        {
+            LookupCommand.Selection => "Selection",
+            LookupCommand.ManualLookup => "Manual lookup",
+            LookupCommand.RecentLookups => "Recent lookups",
+            _ => command.ToString(),
+        };
     }
 
     private void SavePreferences(UserPreferences preferences)
