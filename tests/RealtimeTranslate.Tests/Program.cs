@@ -1,5 +1,6 @@
 using System.Text.Json;
 using RealtimeTranslate.Core.Dictionary;
+using RealtimeTranslate.Core.Explanation;
 using RealtimeTranslate.Core.History;
 using RealtimeTranslate.Core.Models;
 using RealtimeTranslate.Core.Normalization;
@@ -17,6 +18,8 @@ var tests = new (string Name, Action Body)[]
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
     ("recent lookup store replays newest entries", RecentLookupStoreReplaysNewestEntries),
     ("overlay placement planner stacks rapid reservations", OverlayPlacementPlannerStacksRapidReservations),
+    ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
+    ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
 };
 
 var failed = 0;
@@ -156,6 +159,57 @@ static void OverlayPlacementPlannerStacksRapidReservations()
     AssertTrue(first.ToLeft == second.ToLeft && second.ToLeft == third.ToLeft, "expected replay windows to stay on the same side before wrapping");
 }
 
+static void AiExplanationServiceParsesJsonResponse()
+{
+    var responseJson = """
+        {
+          "choices": [
+            {
+              "message": {
+                "content": "{\"translation\":\"这是中文翻译\",\"notes\":[\"note one\",\"note two\"]}"
+              }
+            }
+          ]
+        }
+        """;
+    using var httpClient = new HttpClient(new StaticResponseHandler(responseJson));
+    var service = new OpenAiCompatibleTextExplanationService(
+        httpClient,
+        new OpenAiCompatibleTextExplanationOptions("test", "https://example.test", "test-model", "key"));
+
+    var explanation = service.ExplainAsync("This is a sentence.").GetAwaiter().GetResult();
+
+    AssertEqual("This is a sentence.", explanation.SourceText);
+    AssertEqual("这是中文翻译", explanation.Translation);
+    AssertEqual("note one", explanation.Notes[0]);
+    AssertEqual("test-model", explanation.Model);
+}
+
+static void ExplanationRecorderWritesJsonl()
+{
+    var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
+    var recorder = new JsonlTextExplanationRecorder(root);
+    var record = new TextExplanationRecord(
+        OccurredAt: new DateTimeOffset(2026, 6, 19, 12, 0, 0, TimeSpan.Zero),
+        SourceText: "This is a sentence.",
+        Translation: "这是一个句子。",
+        Notes: ["sentence: 句子"],
+        Selection: new ScreenSelection(1, 2, 300, 80),
+        ScreenshotPath: Path.Combine(root, "screenshots", "sample.png"),
+        Provider: "test",
+        Model: "test-model",
+        ErrorMessage: null);
+
+    recorder.Record(record);
+
+    var jsonl = Path.Combine(root, "records", "explanations.jsonl");
+    AssertTrue(File.Exists(jsonl), "expected explanations jsonl file to be created");
+    using var doc = JsonDocument.Parse(File.ReadLines(jsonl).Single());
+    AssertEqual("This is a sentence.", doc.RootElement.GetProperty("sourceText").GetString());
+    AssertEqual("这是一个句子。", doc.RootElement.GetProperty("translation").GetString());
+    AssertEqual(300, doc.RootElement.GetProperty("selection").GetProperty("width").GetInt32());
+}
+
 static void AssertEqual<T>(T expected, T actual)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))
@@ -187,4 +241,23 @@ static string FindBundledDictionary()
     }
 
     throw new FileNotFoundException("Could not locate src/RealtimeTranslate.App/dictionary.tsv");
+}
+
+internal sealed class StaticResponseHandler : HttpMessageHandler
+{
+    private readonly string _responseBody;
+
+    public StaticResponseHandler(string responseBody)
+    {
+        _responseBody = responseBody;
+    }
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(_responseBody),
+        };
+        return Task.FromResult(response);
+    }
 }
