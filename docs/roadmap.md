@@ -2,11 +2,11 @@
 
 This document records deferred ideas and product direction notes so small fixes can stay focused while larger jumps have a place to wait.
 
-## Paused Ideas
+## Active Ideas
 
 ### Sentence Or Paragraph Explanation
 
-Status: paused.
+Status: implemented on `codex/sentence-explanation`; continue polishing after hands-on use.
 
 Goal: allow a separate hotkey/mode to select a sentence or short paragraph, then show a larger explanation panel with original text, Chinese translation, and key phrase notes.
 
@@ -23,4 +23,4 @@ Likely future shape:
 - Add text-oriented interfaces for OCR cleanup, explanation generation, and a larger scrollable/copyable explanation panel.
 - Keep the first experiment small: recognized text, Chinese translation, and several key phrase notes.
 
-Decision: revisit after the core word-lookup workflow feels stable.
+Decision: implement as a separate F6 text explanation flow backed by a configurable AI API, keeping normal word lookup offline and independent.

@@ -1,6 +1,6 @@
 # Sentence Explanation Feature
 
-Status: active feature branch.
+Status: implemented on the `codex/sentence-explanation` branch.
 
 ## Goal
 
