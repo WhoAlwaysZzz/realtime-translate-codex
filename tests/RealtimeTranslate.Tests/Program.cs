@@ -3,6 +3,7 @@ using RealtimeTranslate.Core.Dictionary;
 using RealtimeTranslate.Core.History;
 using RealtimeTranslate.Core.Models;
 using RealtimeTranslate.Core.Normalization;
+using RealtimeTranslate.Core.Presentation;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Stats;
 
@@ -15,6 +16,7 @@ var tests = new (string Name, Action Body)[]
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
     ("recent lookup store replays newest entries", RecentLookupStoreReplaysNewestEntries),
+    ("overlay placement planner stacks rapid reservations", OverlayPlacementPlannerStacksRapidReservations),
 };
 
 var failed = 0;
@@ -137,6 +139,21 @@ static void RecentLookupStoreReplaysNewestEntries()
 
     var reloaded = new JsonRecentLookupStore(path, maxEntries: 3);
     AssertEqual("fourth", reloaded.GetRecent(1)[0].Title);
+}
+
+static void OverlayPlacementPlannerStacksRapidReservations()
+{
+    var planner = new OverlayPlacementPlanner();
+    var workArea = new OverlayWorkArea(0, 0, 1920, 1080);
+
+    var first = planner.Reserve(workArea, 92);
+    var second = planner.Reserve(workArea, 92);
+    var third = planner.Reserve(workArea, 92);
+
+    AssertEqual(22d, first.Top);
+    AssertEqual(126d, second.Top);
+    AssertEqual(230d, third.Top);
+    AssertTrue(first.ToLeft == second.ToLeft && second.ToLeft == third.ToLeft, "expected replay windows to stay on the same side before wrapping");
 }
 
 static void AssertEqual<T>(T expected, T actual)
