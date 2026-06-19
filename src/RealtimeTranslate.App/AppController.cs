@@ -13,6 +13,7 @@ using RealtimeTranslate.Core.Stats;
 using RealtimeTranslate.App.Settings;
 using RealtimeTranslate.App.SystemIntegration;
 using AppSelectionMode = RealtimeTranslate.App.Settings.SelectionMode;
+using RealtimeTranslate.Core.Explanation;
 using RealtimeTranslate.Core.History;
 
 namespace RealtimeTranslate.App;
@@ -23,11 +24,15 @@ public sealed class AppController : IDisposable
     private readonly ISelectionService _selectionService;
     private readonly IScreenshotService _screenshotService;
     private readonly IOcrService _ocrService;
+    private readonly OcrTextComposer _ocrTextComposer;
     private readonly IWordNormalizer _wordNormalizer;
     private readonly IDictionaryService _dictionaryService;
     private readonly IOverlayPresenter _overlayPresenter;
+    private readonly ITextExplanationPresenter _textExplanationPresenter;
+    private readonly ITextExplanationService _textExplanationService;
     private readonly IRecentLookupStore _recentLookupStore;
     private readonly ILookupRecorder _lookupRecorder;
+    private readonly ITextExplanationRecorder _textExplanationRecorder;
     private readonly IWordQueryCounter _queryCounter;
     private readonly UserPreferencesStore _preferencesStore;
     private readonly Dictionary<LookupCommand, GlobalHotkeyService> _hotkeyServices;
@@ -44,11 +49,15 @@ public sealed class AppController : IDisposable
         ISelectionService selectionService,
         IScreenshotService screenshotService,
         IOcrService ocrService,
+        OcrTextComposer ocrTextComposer,
         IWordNormalizer wordNormalizer,
         IDictionaryService dictionaryService,
         IOverlayPresenter overlayPresenter,
+        ITextExplanationPresenter textExplanationPresenter,
+        ITextExplanationService textExplanationService,
         IRecentLookupStore recentLookupStore,
         ILookupRecorder lookupRecorder,
+        ITextExplanationRecorder textExplanationRecorder,
         IWordQueryCounter queryCounter,
         UserPreferencesStore preferencesStore)
     {
@@ -56,11 +65,15 @@ public sealed class AppController : IDisposable
         _selectionService = selectionService;
         _screenshotService = screenshotService;
         _ocrService = ocrService;
+        _ocrTextComposer = ocrTextComposer;
         _wordNormalizer = wordNormalizer;
         _dictionaryService = dictionaryService;
         _overlayPresenter = overlayPresenter;
+        _textExplanationPresenter = textExplanationPresenter;
+        _textExplanationService = textExplanationService;
         _recentLookupStore = recentLookupStore;
         _lookupRecorder = lookupRecorder;
+        _textExplanationRecorder = textExplanationRecorder;
         _queryCounter = queryCounter;
         _preferencesStore = preferencesStore;
         _hotkeyServices = new Dictionary<LookupCommand, GlobalHotkeyService>
@@ -68,21 +81,25 @@ public sealed class AppController : IDisposable
             [LookupCommand.Selection] = new(0x1999, "RealtimeTranslateCodexSelectionHotkey"),
             [LookupCommand.ManualLookup] = new(0x199A, "RealtimeTranslateCodexManualLookupHotkey"),
             [LookupCommand.RecentLookups] = new(0x199B, "RealtimeTranslateCodexRecentLookupsHotkey"),
+            [LookupCommand.ExplainSelection] = new(0x199C, "RealtimeTranslateCodexExplainSelectionHotkey"),
         };
         _rightDragSelectionService = new GlobalRightDragSelectionService();
         _trayIconService = new TrayIconService(
             TriggerSelectionCommand,
             ShowManualLookupWindow,
             ShowRecentLookups,
+            StartTextExplanationSelection,
             ConfigureHotkey,
             ConfigureManualLookupHotkey,
             ConfigureRecentLookupsHotkey,
+            ConfigureExplainSelectionHotkey,
             SetSelectionMode,
             OpenArchiveFolder,
             Exit);
         _hotkeyServices[LookupCommand.Selection].Pressed += (_, _) => TriggerSelectionCommand();
         _hotkeyServices[LookupCommand.ManualLookup].Pressed += (_, _) => ShowManualLookupWindow();
         _hotkeyServices[LookupCommand.RecentLookups].Pressed += (_, _) => ShowRecentLookups();
+        _hotkeyServices[LookupCommand.ExplainSelection].Pressed += (_, _) => StartTextExplanationSelection();
         _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
@@ -97,7 +114,7 @@ public sealed class AppController : IDisposable
         UpdateTray();
         _trayIconService.ShowInfo(
             "Realtime Translate Codex",
-            $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, or press {_preferences.RecentLookupsHotkey} to replay recent words.");
+            $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, {_preferences.RecentLookupsHotkey} to replay, or {_preferences.ExplainSelectionHotkey} to explain text.");
     }
 
     public void Dispose()
@@ -130,6 +147,16 @@ public sealed class AppController : IDisposable
         }
 
         _ = SelectAndLookupAsync();
+    }
+
+    private void StartTextExplanationSelection()
+    {
+        if (_selectionInProgress)
+        {
+            return;
+        }
+
+        _ = SelectAndExplainTextAsync();
     }
 
     private void ToggleContinuousSelection()
@@ -242,6 +269,86 @@ public sealed class AppController : IDisposable
     private async Task LookupSelectionAsync(ScreenSelection selection)
     {
         await LookupSelectionCoreAsync(selection);
+    }
+
+    private async Task SelectAndExplainTextAsync()
+    {
+        ScreenSelection? selection = null;
+
+        try
+        {
+            _selectionInProgress = true;
+            _selectionCancellation = new CancellationTokenSource();
+            selection = await _selectionService.SelectAsync(_selectionCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            _selectionCancellation?.Dispose();
+            _selectionCancellation = null;
+            _selectionInProgress = false;
+            EnsureHotkeyRegistered();
+        }
+
+        if (selection is not null)
+        {
+            _ = ExplainSelectionCoreAsync(selection);
+        }
+    }
+
+    private async Task ExplainSelectionCoreAsync(ScreenSelection selection)
+    {
+        CapturedSelection? capture = null;
+        var sourceText = string.Empty;
+
+        try
+        {
+            capture = await _screenshotService.CaptureAsync(selection);
+            var candidates = await _ocrService.RecognizeAsync(capture.CroppedImagePng);
+            sourceText = _ocrTextComposer.Compose(candidates);
+            if (string.IsNullOrWhiteSpace(sourceText))
+            {
+                var message = "OCR did not recognize text for explanation.";
+                ShowExplanationError("未识别到可解释文本", string.Empty, "请框选完整句子或短段落。");
+                SafeRecordTextExplanation(BuildTextExplanationRecord(selection, capture.ScreenshotPath, string.Empty, string.Empty, [], string.Empty, string.Empty, message));
+                return;
+            }
+
+            _trayIconService.ShowInfo("Explaining selected text", "Waiting for AI response...");
+            var explanation = await _textExplanationService.ExplainAsync(sourceText);
+            _textExplanationPresenter.Show(new TextExplanationPresentation(
+                "整句解释",
+                explanation.SourceText,
+                explanation.Translation,
+                explanation.Notes,
+                $"{explanation.Provider} · {explanation.Model}"));
+            SafeRecordTextExplanation(BuildTextExplanationRecord(
+                selection,
+                capture.ScreenshotPath,
+                explanation.SourceText,
+                explanation.Translation,
+                explanation.Notes,
+                explanation.Provider,
+                explanation.Model,
+                null));
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message.Length > 240 ? ex.Message[..240] : ex.Message;
+            ShowExplanationError("解释失败", sourceText, message);
+            SafeRecordTextExplanation(BuildTextExplanationRecord(
+                selection,
+                capture?.ScreenshotPath ?? string.Empty,
+                sourceText,
+                string.Empty,
+                [],
+                string.Empty,
+                string.Empty,
+                message));
+        }
     }
 
     private async Task LookupSelectionCoreAsync(ScreenSelection selection)
@@ -379,6 +486,51 @@ public sealed class AppController : IDisposable
         }
     }
 
+    private static TextExplanationRecord BuildTextExplanationRecord(
+        ScreenSelection selection,
+        string screenshotPath,
+        string sourceText,
+        string translation,
+        IReadOnlyList<string> notes,
+        string provider,
+        string model,
+        string? errorMessage)
+    {
+        return new TextExplanationRecord(
+            DateTimeOffset.Now,
+            sourceText,
+            translation,
+            notes,
+            selection,
+            screenshotPath,
+            provider,
+            model,
+            errorMessage);
+    }
+
+    private void SafeRecordTextExplanation(TextExplanationRecord record)
+    {
+        try
+        {
+            _textExplanationRecorder.Record(record);
+        }
+        catch (Exception ex)
+        {
+            _trayIconService.ShowInfo("Explanation archive write failed", ex.Message);
+        }
+    }
+
+    private void ShowExplanationError(string title, string sourceText, string message)
+    {
+        _textExplanationPresenter.Show(new TextExplanationPresentation(
+            title,
+            sourceText,
+            message,
+            [],
+            "AI explanation",
+            IsError: true));
+    }
+
     private void OpenArchiveFolder()
     {
         Directory.CreateDirectory(_settings.ArchiveRoot);
@@ -445,6 +597,11 @@ public sealed class AppController : IDisposable
     private void ConfigureRecentLookupsHotkey()
     {
         ConfigureCommandHotkey(LookupCommand.RecentLookups);
+    }
+
+    private void ConfigureExplainSelectionHotkey()
+    {
+        ConfigureCommandHotkey(LookupCommand.ExplainSelection);
     }
 
     private void ConfigureCommandHotkey(LookupCommand command)
@@ -534,6 +691,7 @@ public sealed class AppController : IDisposable
             LookupCommand.Selection => "Selection",
             LookupCommand.ManualLookup => "Manual lookup",
             LookupCommand.RecentLookups => "Recent lookups",
+            LookupCommand.ExplainSelection => "Text explanation",
             _ => command.ToString(),
         };
     }

@@ -4,6 +4,7 @@ using RealtimeTranslate.Core.Explanation;
 using RealtimeTranslate.Core.History;
 using RealtimeTranslate.Core.Models;
 using RealtimeTranslate.Core.Normalization;
+using RealtimeTranslate.Core.Ocr;
 using RealtimeTranslate.Core.Presentation;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Stats;
@@ -20,6 +21,7 @@ var tests = new (string Name, Action Body)[]
     ("overlay placement planner stacks rapid reservations", OverlayPlacementPlannerStacksRapidReservations),
     ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
+    ("OCR text composer joins words into readable text", OcrTextComposerJoinsWordsIntoReadableText),
 };
 
 var failed = 0;
@@ -208,6 +210,22 @@ static void ExplanationRecorderWritesJsonl()
     AssertEqual("This is a sentence.", doc.RootElement.GetProperty("sourceText").GetString());
     AssertEqual("这是一个句子。", doc.RootElement.GetProperty("translation").GetString());
     AssertEqual(300, doc.RootElement.GetProperty("selection").GetProperty("width").GetInt32());
+}
+
+static void OcrTextComposerJoinsWordsIntoReadableText()
+{
+    var composer = new OcrTextComposer();
+    var text = composer.Compose([
+        new OcrCandidate("This", 1),
+        new OcrCandidate("is", 1),
+        new OcrCandidate("complex", 1),
+        new OcrCandidate(",", 1),
+        new OcrCandidate("isn't", 1),
+        new OcrCandidate("it", 1),
+        new OcrCandidate("?", 1),
+    ]);
+
+    AssertEqual("This is complex, isn't it?", text);
 }
 
 static void AssertEqual<T>(T expected, T actual)

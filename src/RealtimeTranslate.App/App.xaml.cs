@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http;
 using System.Windows;
 using RealtimeTranslate.App.Capture;
 using RealtimeTranslate.App.Ocr;
@@ -6,8 +7,10 @@ using RealtimeTranslate.App.Presentation;
 using RealtimeTranslate.App.Selection;
 using RealtimeTranslate.App.Settings;
 using RealtimeTranslate.Core.Dictionary;
+using RealtimeTranslate.Core.Explanation;
 using RealtimeTranslate.Core.History;
 using RealtimeTranslate.Core.Normalization;
+using RealtimeTranslate.Core.Ocr;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Stats;
 
@@ -24,6 +27,9 @@ public partial class App : System.Windows.Application
         try
         {
             var settings = AppSettings.CreateDefault();
+            var aiSettingsStore = new AiExplanationSettingsStore(Path.Combine(settings.ArchiveRoot, "ai-settings.json"));
+            aiSettingsStore.EnsureTemplateExists();
+            var aiOptions = aiSettingsStore.Load();
             var bundledDictionaryPath = Path.Combine(AppContext.BaseDirectory, "dictionary.tsv");
             var userDictionaryPath = Path.Combine(settings.ArchiveRoot, "dictionary.tsv");
             _controller = new AppController(
@@ -31,11 +37,15 @@ public partial class App : System.Windows.Application
                 new WindowsSelectionService(),
                 new WindowsScreenshotService(settings.ArchiveRoot),
                 new WindowsOcrService(),
+                new OcrTextComposer(),
                 new BasicWordNormalizer(),
                 new EmbeddedDictionaryService([bundledDictionaryPath, userDictionaryPath]),
                 new WpfOverlayPresenter(),
+                new WpfTextExplanationPresenter(),
+                new OpenAiCompatibleTextExplanationService(new HttpClient(), aiOptions),
                 new JsonRecentLookupStore(Path.Combine(settings.ArchiveRoot, "records", "recent-lookups.json")),
                 new JsonlLookupRecorder(settings.ArchiveRoot),
+                new JsonlTextExplanationRecorder(settings.ArchiveRoot),
                 new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")),
                 new UserPreferencesStore(Path.Combine(settings.ArchiveRoot, "settings.json")));
             _controller.Start();

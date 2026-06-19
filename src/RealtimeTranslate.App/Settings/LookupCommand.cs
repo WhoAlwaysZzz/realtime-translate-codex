@@ -5,4 +5,5 @@ public enum LookupCommand
     Selection,
     ManualLookup,
     RecentLookups,
+    ExplainSelection,
 }

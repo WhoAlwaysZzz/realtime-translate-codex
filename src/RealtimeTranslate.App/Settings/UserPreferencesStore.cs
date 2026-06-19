@@ -37,12 +37,14 @@ public sealed class UserPreferencesStore
             var hotkey = ParseHotkey(dto.HotkeyKey, dto.HotkeyModifiers, HotkeyGesture.Default);
             var manualHotkey = ParseHotkey(dto.ManualLookupHotkeyKey, dto.ManualLookupHotkeyModifiers, UserPreferences.Default.ManualLookupHotkey);
             var recentHotkey = ParseHotkey(dto.RecentLookupsHotkeyKey, dto.RecentLookupsHotkeyModifiers, UserPreferences.Default.RecentLookupsHotkey);
+            var explainHotkey = ParseHotkey(dto.ExplainSelectionHotkeyKey, dto.ExplainSelectionHotkeyModifiers, UserPreferences.Default.ExplainSelectionHotkey);
             var mode = ParseEnum(dto.SelectionMode, SelectionMode.OneShot);
 
             return new UserPreferences(
                 hotkey,
                 manualHotkey,
                 recentHotkey,
+                explainHotkey,
                 mode);
         }
         catch
@@ -61,6 +63,8 @@ public sealed class UserPreferencesStore
             preferences.ManualLookupHotkey.Modifiers.ToString(),
             preferences.RecentLookupsHotkey.Key.ToString(),
             preferences.RecentLookupsHotkey.Modifiers.ToString(),
+            preferences.ExplainSelectionHotkey.Key.ToString(),
+            preferences.ExplainSelectionHotkey.Modifiers.ToString(),
             preferences.SelectionMode.ToString());
         File.WriteAllText(_path, JsonSerializer.Serialize(dto, JsonOptions));
     }
@@ -88,5 +92,7 @@ public sealed class UserPreferencesStore
         string? ManualLookupHotkeyModifiers,
         string? RecentLookupsHotkeyKey,
         string? RecentLookupsHotkeyModifiers,
+        string? ExplainSelectionHotkeyKey,
+        string? ExplainSelectionHotkeyModifiers,
         string? SelectionMode);
 }
