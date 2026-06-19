@@ -553,10 +553,23 @@ public sealed class AppController : IDisposable
             return;
         }
 
-        _manualLookupWindow = new ManualLookupWindow();
+        _manualLookupWindow = new ManualLookupWindow(CompleteManualLookupPrefix);
         _manualLookupWindow.Closed += (_, _) => _manualLookupWindow = null;
         _manualLookupWindow.Submitted += (_, text) => _ = LookupManualTextAsync(text);
         _manualLookupWindow.Show();
+    }
+
+    private string? CompleteManualLookupPrefix(string prefix)
+    {
+        try
+        {
+            return _recentLookupStore.CompletePrefix(prefix);
+        }
+        catch (Exception ex)
+        {
+            _trayIconService.ShowInfo("Recent lookup completion failed", ex.Message);
+            return null;
+        }
     }
 
     private void ShowRecentLookups()

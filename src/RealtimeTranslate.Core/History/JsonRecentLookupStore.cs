@@ -57,6 +57,38 @@ public sealed class JsonRecentLookupStore : IRecentLookupStore
             .ToArray();
     }
 
+    public string? CompletePrefix(string prefix)
+    {
+        var trimmedPrefix = prefix.Trim();
+        if (trimmedPrefix.Length == 0)
+        {
+            return null;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in _entries)
+        {
+            var presentation = entry.Presentation;
+            if (presentation.IsError || string.IsNullOrWhiteSpace(presentation.Title))
+            {
+                continue;
+            }
+
+            var title = presentation.Title.Trim();
+            if (!seen.Add(title))
+            {
+                continue;
+            }
+
+            if (title.StartsWith(trimmedPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return title;
+            }
+        }
+
+        return null;
+    }
+
     private static IReadOnlyList<RecentLookupEntry> Load(string path)
     {
         if (!File.Exists(path))

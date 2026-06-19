@@ -11,10 +11,13 @@ namespace RealtimeTranslate.App.ManualInput;
 
 public sealed class ManualLookupWindow : Window
 {
+    private readonly Func<string, string?> _completePrefix;
     private readonly WpfTextBox _input;
 
-    public ManualLookupWindow()
+    public ManualLookupWindow(Func<string, string?>? completePrefix = null)
     {
+        _completePrefix = completePrefix ?? (_ => null);
+
         Title = "Manual lookup";
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
@@ -70,6 +73,13 @@ public sealed class ManualLookupWindow : Window
             return;
         }
 
+        if (e.Key == Key.Tab)
+        {
+            TryCompleteInput();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Enter && e.Key != Key.Return)
         {
             return;
@@ -83,5 +93,17 @@ public sealed class ManualLookupWindow : Window
 
         Close();
         e.Handled = true;
+    }
+
+    private void TryCompleteInput()
+    {
+        var completion = _completePrefix(_input.Text);
+        if (string.IsNullOrWhiteSpace(completion))
+        {
+            return;
+        }
+
+        _input.Text = completion;
+        _input.CaretIndex = _input.Text.Length;
     }
 }

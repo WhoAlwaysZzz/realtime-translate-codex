@@ -18,6 +18,7 @@ var tests = new (string Name, Action Body)[]
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
     ("recent lookup store replays newest entries", RecentLookupStoreReplaysNewestEntries),
+    ("recent lookup store completes lookup prefixes", RecentLookupStoreCompletesLookupPrefixes),
     ("overlay placement planner stacks rapid reservations", OverlayPlacementPlannerStacksRapidReservations),
     ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
@@ -144,6 +145,27 @@ static void RecentLookupStoreReplaysNewestEntries()
 
     var reloaded = new JsonRecentLookupStore(path, maxEntries: 3);
     AssertEqual("fourth", reloaded.GetRecent(1)[0].Title);
+}
+
+static void RecentLookupStoreCompletesLookupPrefixes()
+{
+    var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
+    var path = Path.Combine(root, "records", "recent-lookups.json");
+    var store = new JsonRecentLookupStore(path, maxEntries: 6);
+
+    store.Add(new LookupPresentation("process", "source", ["过程"], "过程", 1));
+    store.Add(new LookupPresentation("project", "source", ["项目"], "项目", 1));
+    store.Add(new LookupPresentation("prompt", "source", ["提示"], "提示", 1));
+    store.Add(new LookupPresentation("project", "source", ["项目"], "项目", 2));
+    store.Add(new LookupPresentation("product", "source", ["failure"], "failure", 0, IsError: true));
+
+    AssertEqual("project", store.CompletePrefix("Pro"));
+    AssertEqual("prompt", store.CompletePrefix("prom"));
+    AssertEqual(null, store.CompletePrefix(""));
+    AssertEqual(null, store.CompletePrefix("missing"));
+
+    var reloaded = new JsonRecentLookupStore(path, maxEntries: 6);
+    AssertEqual("project", reloaded.CompletePrefix("proj"));
 }
 
 static void OverlayPlacementPlannerStacksRapidReservations()
