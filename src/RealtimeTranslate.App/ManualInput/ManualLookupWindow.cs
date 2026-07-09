@@ -2,8 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using RealtimeTranslate.App.Presentation;
 using WpfBrushes = System.Windows.Media.Brushes;
-using WpfColor = System.Windows.Media.Color;
 using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
 using WpfTextBox = System.Windows.Controls.TextBox;
 
@@ -28,6 +28,7 @@ public sealed class ManualLookupWindow : Window
         Background = WpfBrushes.Transparent;
         AllowsTransparency = true;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        UiTheme.PrepareEntrance(this, 0.97);
 
         _input = new WpfTextBox
         {
@@ -35,24 +36,19 @@ public sealed class ManualLookupWindow : Window
             FontWeight = FontWeights.SemiBold,
             Padding = new Thickness(12, 8, 12, 8),
             BorderThickness = new Thickness(0),
-            Foreground = WpfBrushes.White,
-            Background = new SolidColorBrush(WpfColor.FromRgb(34, 39, 48)),
-            CaretBrush = WpfBrushes.White,
+            Foreground = UiTheme.Brush(UiTheme.TextPrimary),
+            Background = UiTheme.Brush(UiTheme.SurfaceElevated),
+            CaretBrush = UiTheme.Brush(UiTheme.Accent),
+            SelectionBrush = UiTheme.Brush(UiTheme.Accent),
         };
         _input.PreviewKeyDown += OnInputPreviewKeyDown;
 
-        Content = new Border
+        Content = UiTheme.CreatePanel(new Border
         {
-            Padding = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Background = new SolidColorBrush(WpfColor.FromArgb(180, 255, 255, 255)),
-            Child = new Border
-            {
-                CornerRadius = new CornerRadius(7),
-                Background = new SolidColorBrush(WpfColor.FromRgb(34, 39, 48)),
-                Child = _input,
-            },
-        };
+            CornerRadius = new CornerRadius(7),
+            Background = UiTheme.Brush(UiTheme.SurfaceElevated),
+            Child = _input,
+        }, new Thickness(1), 9);
     }
 
     public event EventHandler<string>? Submitted;
@@ -62,6 +58,7 @@ public sealed class ManualLookupWindow : Window
         base.OnContentRendered(e);
         Activate();
         _input.Focus();
+        UiTheme.PlayEntrance(this);
     }
 
     private void OnInputPreviewKeyDown(object sender, WpfKeyEventArgs e)

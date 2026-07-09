@@ -6,7 +6,7 @@ using System.Windows.Media;
 using RealtimeTranslate.Core.Models;
 using ControlsOrientation = System.Windows.Controls.Orientation;
 using WpfBrushes = System.Windows.Media.Brushes;
-using WpfColor = System.Windows.Media.Color;
+using WpfTextBlock = System.Windows.Controls.TextBlock;
 
 namespace RealtimeTranslate.App.Presentation;
 
@@ -26,7 +26,7 @@ public sealed class LookupOverlayWindow : Window
         SizeToContent = SizeToContent.Height;
         Background = WpfBrushes.Transparent;
         AllowsTransparency = true;
-        Opacity = 0;
+        UiTheme.PrepareEntrance(this, 0.985);
         Content = BuildContent(presentation);
         MouseLeftButtonUp += (_, _) => BeginClose();
     }
@@ -45,7 +45,7 @@ public sealed class LookupOverlayWindow : Window
                 EasingMode = EasingMode.EaseOut,
             },
         });
-        BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180)));
+        UiTheme.PlayEntrance(this, TimeSpan.FromMilliseconds(180));
 
         var timer = new System.Windows.Threading.DispatcherTimer
         {
@@ -77,21 +77,32 @@ public sealed class LookupOverlayWindow : Window
 
     private static UIElement BuildContent(LookupPresentation presentation)
     {
-        var root = new StackPanel
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var accent = new Border
         {
-            Orientation = ControlsOrientation.Vertical,
+            Width = 3,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
+            Margin = new Thickness(-14, 0, 0, 0),
+            CornerRadius = new CornerRadius(2),
+            Background = presentation.IsError ? UiTheme.Brush(UiTheme.Danger) : UiTheme.Brush(UiTheme.Accent),
         };
+        Grid.SetRowSpan(accent, 3);
+        root.Children.Add(accent);
 
         var topRow = new Grid();
         topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var title = new TextBlock
+        var title = new WpfTextBlock
         {
             Text = presentation.Title,
-            FontSize = 20,
+            FontSize = 21,
             FontWeight = FontWeights.SemiBold,
-            Foreground = WpfBrushes.White,
+            Foreground = UiTheme.Brush(UiTheme.TextPrimary),
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 140,
             VerticalAlignment = VerticalAlignment.Center,
@@ -99,53 +110,49 @@ public sealed class LookupOverlayWindow : Window
         Grid.SetColumn(title, 0);
         topRow.Children.Add(title);
 
-        var primary = new TextBlock
+        var primary = new WpfTextBlock
         {
             Text = presentation.PrimaryDefinition,
             Margin = new Thickness(14, 0, 0, 0),
-            FontSize = presentation.IsError ? 18 : 24,
+            FontSize = presentation.IsError ? 18 : 25,
             FontWeight = FontWeights.Bold,
             Foreground = presentation.IsError
-                ? new SolidColorBrush(WpfColor.FromRgb(255, 204, 204))
-                : new SolidColorBrush(WpfColor.FromRgb(255, 244, 198)),
+                ? UiTheme.Brush(UiTheme.Danger)
+                : UiTheme.Brush(UiTheme.AccentWarm),
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
         };
         Grid.SetColumn(primary, 1);
         topRow.Children.Add(primary);
 
+        Grid.SetRow(topRow, 0);
         root.Children.Add(topRow);
 
-        var meta = new TextBlock
+        var meta = new WpfTextBlock
         {
             Text = presentation.QueryCount > 0 ? $"第 {presentation.QueryCount} 次 · {presentation.Subtitle}" : presentation.Subtitle,
-            Margin = new Thickness(0, 8, 0, 0),
+            Margin = new Thickness(0, 9, 0, 0),
             FontSize = 12,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(183, 190, 202)),
+            Foreground = UiTheme.Brush(UiTheme.TextSecondary),
             TextWrapping = TextWrapping.Wrap,
         };
+        Grid.SetRow(meta, 1);
         root.Children.Add(meta);
 
         if (presentation.Definitions.Count > 1)
         {
-            root.Children.Add(new TextBlock
+            var extra = new WpfTextBlock
             {
                 Text = string.Join(" / ", presentation.Definitions.Skip(1).Take(2)),
-                Margin = new Thickness(0, 5, 0, 0),
+                Margin = new Thickness(0, 6, 0, 0),
                 FontSize = 12,
-                Foreground = new SolidColorBrush(WpfColor.FromRgb(211, 218, 229)),
+                Foreground = UiTheme.Brush(UiTheme.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
-            });
+            };
+            Grid.SetRow(extra, 2);
+            root.Children.Add(extra);
         }
 
-        return new Border
-        {
-            Padding = new Thickness(14, 10, 14, 12),
-            CornerRadius = new CornerRadius(8),
-            Background = new SolidColorBrush(WpfColor.FromArgb(232, 25, 30, 38)),
-            BorderBrush = new SolidColorBrush(WpfColor.FromArgb(160, 255, 255, 255)),
-            BorderThickness = new Thickness(1),
-            Child = root,
-        };
+        return UiTheme.CreatePanel(root, new Thickness(14, 11, 14, 13), 10);
     }
 }

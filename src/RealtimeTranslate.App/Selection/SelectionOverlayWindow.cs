@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using RealtimeTranslate.App.Presentation;
 using RealtimeTranslate.Core.Models;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfColor = System.Windows.Media.Color;
@@ -25,7 +26,7 @@ public sealed class SelectionOverlayWindow : Window
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true;
-        Background = new SolidColorBrush(WpfColor.FromArgb(42, 0, 0, 0));
+        Background = new SolidColorBrush(WpfColor.FromArgb(30, 0, 0, 0));
         Topmost = true;
         ShowInTaskbar = false;
         Cursor = WpfCursors.Cross;
@@ -106,8 +107,9 @@ public sealed class SelectionOverlayWindow : Window
         }
 
         var rect = ToRect(_start.Value, _current.Value);
-        drawingContext.DrawRectangle(null, new WpfPen(WpfBrushes.White, 2), rect);
-        drawingContext.DrawRectangle(new SolidColorBrush(WpfColor.FromArgb(48, 46, 204, 113)), null, rect);
+        drawingContext.DrawRectangle(UiTheme.Brush(WpfColor.FromArgb(34, UiTheme.Accent.R, UiTheme.Accent.G, UiTheme.Accent.B)), null, rect);
+        drawingContext.DrawRectangle(null, new WpfPen(WpfBrushes.Black, 4), rect);
+        drawingContext.DrawRectangle(null, new WpfPen(UiTheme.Brush(UiTheme.Accent), 2), rect);
     }
 
     private ScreenSelection ToScreenSelection(WpfPoint start, WpfPoint end)
