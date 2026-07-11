@@ -13,8 +13,11 @@ using WpfContentPresenter = System.Windows.Controls.ContentPresenter;
 using WpfControl = System.Windows.Controls.Control;
 using WpfCursors = System.Windows.Input.Cursors;
 using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
+using WpfFontFamily = System.Windows.Media.FontFamily;
 using WpfPoint = System.Windows.Point;
+using WpfTextBlock = System.Windows.Controls.TextBlock;
 using WpfVerticalAlignment = System.Windows.VerticalAlignment;
+using WpfBrushes = System.Windows.Media.Brushes;
 
 namespace RealtimeTranslate.App.Presentation;
 
@@ -30,6 +33,8 @@ public static class UiTheme
     public static readonly WpfColor Accent = WpfColor.FromRgb(139, 211, 214);
     public static readonly WpfColor AccentWarm = WpfColor.FromRgb(255, 231, 176);
     public static readonly WpfColor Danger = WpfColor.FromRgb(255, 190, 190);
+    public const string FontFamilyName = "Segoe UI";
+    public const double PanelRadius = 8;
 
     public static SolidColorBrush Brush(WpfColor color)
     {
@@ -38,7 +43,7 @@ public static class UiTheme
         return brush;
     }
 
-    public static WpfBorder CreatePanel(UIElement child, Thickness padding, double radius = 10)
+    public static WpfBorder CreatePanel(UIElement child, Thickness padding, double radius = PanelRadius)
     {
         return new WpfBorder
         {
@@ -49,9 +54,9 @@ public static class UiTheme
             BorderThickness = new Thickness(1),
             Effect = new DropShadowEffect
             {
-                BlurRadius = 30,
-                ShadowDepth = 10,
-                Opacity = 0.36,
+                BlurRadius = 18,
+                ShadowDepth = 5,
+                Opacity = 0.3,
                 Color = WpfColor.FromRgb(0, 0, 0),
             },
             Child = child,
@@ -73,6 +78,25 @@ public static class UiTheme
         };
         button.Click += (_, _) => action();
         return button;
+    }
+
+    public static WpfTextBlock CreateLabel(string text)
+    {
+        return new WpfTextBlock
+        {
+            Text = text.ToUpperInvariant(),
+            FontFamily = new WpfFontFamily(FontFamilyName),
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brush(TextMuted),
+        };
+    }
+
+    public static void StyleWindow(Window window)
+    {
+        window.FontFamily = new WpfFontFamily(FontFamilyName);
+        window.Foreground = Brush(TextPrimary);
+        window.Background = WpfBrushes.Transparent;
     }
 
     public static void PrepareEntrance(Window window, double scale = 0.98)
@@ -108,7 +132,7 @@ public static class UiTheme
     private static Style CreateButtonStyle()
     {
         var border = new FrameworkElementFactory(typeof(WpfBorder));
-        border.SetValue(WpfBorder.CornerRadiusProperty, new CornerRadius(7));
+        border.SetValue(WpfBorder.CornerRadiusProperty, new CornerRadius(6));
         border.SetBinding(WpfBorder.BackgroundProperty, new System.Windows.Data.Binding(nameof(WpfControl.Background))
         {
             RelativeSource = System.Windows.Data.RelativeSource.TemplatedParent,

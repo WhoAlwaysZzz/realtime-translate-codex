@@ -26,7 +26,7 @@ public sealed class SelectionOverlayWindow : Window
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
         AllowsTransparency = true;
-        Background = new SolidColorBrush(WpfColor.FromArgb(30, 0, 0, 0));
+        Background = new SolidColorBrush(WpfColor.FromArgb(20, 0, 0, 0));
         Topmost = true;
         ShowInTaskbar = false;
         Cursor = WpfCursors.Cross;
@@ -108,8 +108,8 @@ public sealed class SelectionOverlayWindow : Window
 
         var rect = ToRect(_start.Value, _current.Value);
         drawingContext.DrawRectangle(UiTheme.Brush(WpfColor.FromArgb(34, UiTheme.Accent.R, UiTheme.Accent.G, UiTheme.Accent.B)), null, rect);
-        drawingContext.DrawRectangle(null, new WpfPen(WpfBrushes.Black, 4), rect);
-        drawingContext.DrawRectangle(null, new WpfPen(UiTheme.Brush(UiTheme.Accent), 2), rect);
+        drawingContext.DrawRectangle(null, new WpfPen(WpfBrushes.Black, 3), rect);
+        drawingContext.DrawRectangle(null, new WpfPen(UiTheme.Brush(UiTheme.Accent), 1.5), rect);
     }
 
     private ScreenSelection ToScreenSelection(WpfPoint start, WpfPoint end)

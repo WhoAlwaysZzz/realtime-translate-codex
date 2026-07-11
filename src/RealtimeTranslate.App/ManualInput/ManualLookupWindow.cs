@@ -24,9 +24,10 @@ public sealed class ManualLookupWindow : Window
         ShowInTaskbar = false;
         Topmost = true;
         Width = 420;
-        Height = 74;
+        Height = 104;
         Background = WpfBrushes.Transparent;
         AllowsTransparency = true;
+        UiTheme.StyleWindow(this);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         UiTheme.PrepareEntrance(this, 0.97);
 
@@ -40,15 +41,26 @@ public sealed class ManualLookupWindow : Window
             Background = UiTheme.Brush(UiTheme.SurfaceElevated),
             CaretBrush = UiTheme.Brush(UiTheme.Accent),
             SelectionBrush = UiTheme.Brush(UiTheme.Accent),
+            ToolTip = "Type a word. Enter to look up, Tab to complete, Esc to close.",
         };
         _input.PreviewKeyDown += OnInputPreviewKeyDown;
 
-        Content = UiTheme.CreatePanel(new Border
+        var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        layout.Children.Add(UiTheme.CreateLabel("LOOK UP A WORD"));
+
+        var inputBorder = new Border
         {
-            CornerRadius = new CornerRadius(7),
+            Margin = new Thickness(0, 7, 0, 0),
+            CornerRadius = new CornerRadius(6),
             Background = UiTheme.Brush(UiTheme.SurfaceElevated),
             Child = _input,
-        }, new Thickness(1), 9);
+        };
+        Grid.SetRow(inputBorder, 1);
+        layout.Children.Add(inputBorder);
+
+        Content = UiTheme.CreatePanel(layout, new Thickness(12));
     }
 
     public event EventHandler<string>? Submitted;

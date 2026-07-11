@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using RealtimeTranslate.App.Presentation;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfButton = System.Windows.Controls.Button;
 using WpfColor = System.Windows.Media.Color;
@@ -20,74 +21,69 @@ public sealed class HotkeySettingsWindow : Window
     {
         _capturedHotkey = currentHotkey;
         Title = "Configure hotkey";
-        Width = 360;
-        Height = 190;
+        Width = 400;
+        Height = 214;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.NoResize;
         Topmost = true;
+        WindowStyle = WindowStyle.None;
+        Background = WpfBrushes.Transparent;
+        AllowsTransparency = true;
+        UiTheme.StyleWindow(this);
+        UiTheme.PrepareEntrance(this);
 
         _hotkeyText = new TextBlock
         {
             Text = currentHotkey.ToString(),
             FontSize = 24,
             FontWeight = FontWeights.Bold,
-            Foreground = WpfBrushes.White,
+            Foreground = UiTheme.Brush(UiTheme.AccentWarm),
             HorizontalAlignment = WpfHorizontalAlignment.Center,
             Margin = new Thickness(0, 16, 0, 12),
         };
 
-        var saveButton = new WpfButton
-        {
-            Content = "Save",
-            Width = 88,
-            Height = 32,
-            IsDefault = true,
-            Margin = new Thickness(8),
-        };
-        saveButton.Click += (_, _) =>
+        var saveButton = UiTheme.CreateButton("Save", () =>
         {
             DialogResult = true;
             Close();
-        };
-
-        var cancelButton = new WpfButton
-        {
-            Content = "Cancel",
-            Width = 88,
-            Height = 32,
-            IsCancel = true,
-            Margin = new Thickness(8),
-        };
+        });
+        saveButton.IsDefault = true;
+        saveButton.Margin = new Thickness(8, 0, 0, 0);
+        var cancelButton = UiTheme.CreateButton("Cancel", Close);
+        cancelButton.IsCancel = true;
 
         var buttons = new StackPanel
         {
             Orientation = WpfOrientation.Horizontal,
-            HorizontalAlignment = WpfHorizontalAlignment.Center,
+            HorizontalAlignment = WpfHorizontalAlignment.Right,
             Children = { saveButton, cancelButton },
         };
 
-        Content = new Border
+        var content = new StackPanel
         {
-            Background = new SolidColorBrush(WpfColor.FromRgb(32, 37, 46)),
-            Padding = new Thickness(18),
-            Child = new StackPanel
+            Children =
             {
-                Children =
+                UiTheme.CreateLabel("KEYBOARD SHORTCUT"),
+                new TextBlock
                 {
-                    new TextBlock
-                    {
-                        Text = "Press a new shortcut. F-keys can be used alone; other keys should use Ctrl, Alt, Shift, or Win.",
-                        Foreground = new SolidColorBrush(WpfColor.FromRgb(210, 216, 224)),
-                        TextWrapping = TextWrapping.Wrap,
-                        HorizontalAlignment = WpfHorizontalAlignment.Center,
-                    },
-                    _hotkeyText,
-                    buttons,
+                    Text = "Press the shortcut now. F-keys work alone; other keys need Ctrl, Alt, Shift, or Win.",
+                    Margin = new Thickness(0, 8, 0, 0),
+                    Foreground = UiTheme.Brush(UiTheme.TextSecondary),
+                    TextWrapping = TextWrapping.Wrap,
                 },
+                _hotkeyText,
+                buttons,
             },
         };
+        Content = UiTheme.CreatePanel(content, new Thickness(18));
 
         PreviewKeyDown += OnPreviewKeyDown;
+    }
+
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        UiTheme.PlayEntrance(this);
     }
 
     public HotkeyGesture CapturedHotkey => _capturedHotkey;

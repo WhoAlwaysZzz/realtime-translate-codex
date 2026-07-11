@@ -26,6 +26,7 @@ public sealed class LookupOverlayWindow : Window
         SizeToContent = SizeToContent.Height;
         Background = WpfBrushes.Transparent;
         AllowsTransparency = true;
+        UiTheme.StyleWindow(this);
         UiTheme.PrepareEntrance(this, 0.985);
         Content = BuildContent(presentation);
         MouseLeftButtonUp += (_, _) => BeginClose();
@@ -153,6 +154,6 @@ public sealed class LookupOverlayWindow : Window
             root.Children.Add(extra);
         }
 
-        return UiTheme.CreatePanel(root, new Thickness(14, 11, 14, 13), 10);
+        return UiTheme.CreatePanel(root, new Thickness(14, 11, 14, 13));
     }
 }

@@ -31,6 +31,7 @@ public sealed class TextExplanationWindow : Window
         MinHeight = 320;
         Background = WpfBrushes.Transparent;
         AllowsTransparency = true;
+        UiTheme.StyleWindow(this);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         UiTheme.PrepareEntrance(this, 0.97);
         Content = BuildContent(presentation);
@@ -56,7 +57,7 @@ public sealed class TextExplanationWindow : Window
         Grid.SetRow(footer, 2);
         layout.Children.Add(footer);
 
-        return UiTheme.CreatePanel(layout, new Thickness(18), 12);
+        return UiTheme.CreatePanel(layout, new Thickness(20));
     }
 
     private UIElement BuildHeader(TextExplanationPresentation presentation)
@@ -79,7 +80,7 @@ public sealed class TextExplanationWindow : Window
         var title = new WpfTextBlock
         {
             Text = presentation.Title,
-            FontSize = 22,
+            FontSize = 18,
             FontWeight = FontWeights.SemiBold,
             Foreground = presentation.IsError
                 ? UiTheme.Brush(UiTheme.Danger)
@@ -109,7 +110,8 @@ public sealed class TextExplanationWindow : Window
         };
 
         panel.Children.Add(BuildSection("Original", presentation.SourceText, 14, UiTheme.TextSecondary));
-        panel.Children.Add(BuildSection("Translation", presentation.Translation, 20, presentation.IsError ? UiTheme.Danger : UiTheme.AccentWarm));
+        panel.Children.Add(BuildDivider());
+        panel.Children.Add(BuildSection("Translation", presentation.Translation, 19, presentation.IsError ? UiTheme.Danger : UiTheme.AccentWarm));
 
         if (presentation.Notes.Count > 0)
         {
@@ -172,12 +174,16 @@ public sealed class TextExplanationWindow : Window
 
     private static WpfTextBlock BuildLabel(string text)
     {
-        return new WpfTextBlock
+        return UiTheme.CreateLabel(text);
+    }
+
+    private static Border BuildDivider()
+    {
+        return new Border
         {
-            Text = text,
-            FontSize = 12,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = UiTheme.Brush(UiTheme.TextMuted),
+            Height = 1,
+            Margin = new Thickness(0, 2, 0, 14),
+            Background = UiTheme.Brush(WpfColor.FromArgb(45, 255, 255, 255)),
         };
     }
 

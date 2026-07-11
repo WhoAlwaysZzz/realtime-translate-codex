@@ -47,8 +47,8 @@ public sealed class PassiveSelectionOverlayWindow : Window
 
         var rect = ToLocalRect(_selection);
         drawingContext.DrawRectangle(UiTheme.Brush(WpfColor.FromArgb(34, UiTheme.Accent.R, UiTheme.Accent.G, UiTheme.Accent.B)), null, rect);
-        drawingContext.DrawRectangle(null, new WpfPen(WpfBrushes.Black, 4), rect);
-        drawingContext.DrawRectangle(null, new WpfPen(UiTheme.Brush(UiTheme.Accent), 2), rect);
+        drawingContext.DrawRectangle(null, new WpfPen(WpfBrushes.Black, 3), rect);
+        drawingContext.DrawRectangle(null, new WpfPen(UiTheme.Brush(UiTheme.Accent), 1.5), rect);
     }
 
     private Rect ToLocalRect(ScreenSelection selection)
