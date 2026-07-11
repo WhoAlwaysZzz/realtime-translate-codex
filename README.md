@@ -1,6 +1,33 @@
 # Realtime Translate Codex
 
+[![CI](https://github.com/WhoAlwaysZzz/realtime-translate-codex/actions/workflows/ci.yml/badge.svg)](https://github.com/WhoAlwaysZzz/realtime-translate-codex/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Windows word lookup and text explanation overlay for visual novels, games, web pages, chat windows, and any other visible English text. Word lookup is offline; sentence explanation uses a configured AI API.
+
+## Features
+
+- Right-drag or hotkey-driven OCR selection from any visible desktop window.
+- Offline English-to-Chinese dictionary lookup with normalization and basic lemmatization.
+- Compact stacked overlays, recent lookup replay, query counts, and manual keyboard lookup.
+- Optional AI sentence and short-paragraph explanation through an OpenAI-compatible API.
+- Local JSONL records and screenshots for lookup history.
+
+## Requirements
+
+- Windows 10 or Windows 11
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) for source builds
+- Windows English OCR language support
+
+## Build
+
+```powershell
+git clone https://github.com/WhoAlwaysZzz/realtime-translate-codex.git
+cd realtime-translate-codex
+dotnet restore .\RealtimeTranslateCodex.sln
+dotnet build .\RealtimeTranslateCodex.sln
+dotnet run --project .\src\RealtimeTranslate.App\RealtimeTranslate.App.csproj
+```
 
 ## Usage
 
@@ -64,6 +91,8 @@ Set the API key in either place:
 
 The environment variable takes precedence. The config file is local and is not meant to be committed. Text selected for explanation is sent to the configured API provider.
 
+Never commit an API key. Prefer the `DEEPSEEK_API_KEY` environment variable or keep the key only in the generated local settings file.
+
 ## Dictionary
 
 The app ships with a generated ECDICT-based English-Chinese dictionary at `src/RealtimeTranslate.App/dictionary.tsv`, then loads an optional user override dictionary at:
@@ -85,3 +114,15 @@ powershell -ExecutionPolicy Bypass -File .\tools\Import-Ecdict.ps1
 ```
 
 See `THIRD_PARTY_NOTICES.md` for ECDICT attribution and license details.
+
+## Privacy
+
+Word OCR and dictionary lookup run locally. The application stores screenshots and lookup records under `%LOCALAPPDATA%\RealtimeTranslateCodex`; these may contain private on-screen content. Sentence explanation sends only the selected OCR text to the API provider configured by the user. See [SECURITY.md](SECURITY.md) for reporting security issues.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request and follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## License
+
+Released under the [MIT License](LICENSE). The bundled dictionary has separate attribution described in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

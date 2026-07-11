@@ -7,3 +7,16 @@ obj/
 *.suo
 *.cache
 *.log
+
+# Local application data and secrets
+ai-settings.json
+settings.json
+screenshots/
+records/
+dictionary.local.tsv
+
+# Local tooling
+.idea/
+.vscode/
+TestResults/
+*.userprefs

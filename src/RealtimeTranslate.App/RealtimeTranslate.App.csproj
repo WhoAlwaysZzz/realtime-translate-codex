@@ -17,6 +17,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <Product>Realtime Translate Codex</Product>
+    <Description>Compact Windows OCR word lookup and AI text explanation overlay.</Description>
+    <Authors>WhoAlwaysZzz</Authors>
+    <RepositoryUrl>https://github.com/WhoAlwaysZzz/realtime-translate-codex</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
 </Project>

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Restore
+        run: dotnet restore .\RealtimeTranslateCodex.sln
+      - name: Build
+        run: dotnet build .\RealtimeTranslateCodex.sln --no-restore --configuration Release
+      - name: Test
+        run: dotnet run --project .\tests\RealtimeTranslate.Tests\RealtimeTranslate.Tests.csproj --configuration Release --no-build
+      - name: Format
+        run: dotnet format .\RealtimeTranslateCodex.sln --verify-no-changes --verbosity minimal --no-restore
