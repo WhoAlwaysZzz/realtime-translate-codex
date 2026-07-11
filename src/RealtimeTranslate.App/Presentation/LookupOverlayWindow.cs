@@ -27,7 +27,7 @@ public sealed class LookupOverlayWindow : Window
         Background = WpfBrushes.Transparent;
         AllowsTransparency = true;
         UiTheme.StyleWindow(this);
-        UiTheme.PrepareEntrance(this, 0.985);
+        UiTheme.PrepareEntrance(this);
         Content = BuildContent(presentation);
         MouseLeftButtonUp += (_, _) => BeginClose();
     }

@@ -33,7 +33,7 @@ public sealed class TextExplanationWindow : Window
         AllowsTransparency = true;
         UiTheme.StyleWindow(this);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        UiTheme.PrepareEntrance(this, 0.97);
+        UiTheme.PrepareEntrance(this);
         Content = BuildContent(presentation);
         PreviewKeyDown += OnPreviewKeyDown;
     }

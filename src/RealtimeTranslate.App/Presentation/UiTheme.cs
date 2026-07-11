@@ -14,7 +14,6 @@ using WpfControl = System.Windows.Controls.Control;
 using WpfCursors = System.Windows.Input.Cursors;
 using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
 using WpfFontFamily = System.Windows.Media.FontFamily;
-using WpfPoint = System.Windows.Point;
 using WpfTextBlock = System.Windows.Controls.TextBlock;
 using WpfVerticalAlignment = System.Windows.VerticalAlignment;
 using WpfBrushes = System.Windows.Media.Brushes;
@@ -99,11 +98,9 @@ public static class UiTheme
         window.Background = WpfBrushes.Transparent;
     }
 
-    public static void PrepareEntrance(Window window, double scale = 0.98)
+    public static void PrepareEntrance(Window window)
     {
         window.Opacity = 0;
-        window.RenderTransformOrigin = new WpfPoint(0.5, 0.5);
-        window.RenderTransform = new ScaleTransform(scale, scale);
     }
 
     public static void PlayEntrance(Window window, TimeSpan? duration = null)
@@ -114,19 +111,6 @@ public static class UiTheme
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
         });
 
-        if (window.RenderTransform is ScaleTransform scale)
-        {
-            var scaleAnimation = new DoubleAnimation(1, TimeSpan.FromMilliseconds(220))
-            {
-                EasingFunction = new BackEase
-                {
-                    Amplitude = 0.22,
-                    EasingMode = EasingMode.EaseOut,
-                },
-            };
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimation);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimation);
-        }
     }
 
     private static Style CreateButtonStyle()

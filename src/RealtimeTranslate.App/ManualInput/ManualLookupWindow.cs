@@ -29,7 +29,7 @@ public sealed class ManualLookupWindow : Window
         AllowsTransparency = true;
         UiTheme.StyleWindow(this);
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        UiTheme.PrepareEntrance(this, 0.97);
+        UiTheme.PrepareEntrance(this);
 
         _input = new WpfTextBox
         {
