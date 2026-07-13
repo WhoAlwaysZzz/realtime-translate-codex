@@ -42,6 +42,7 @@ public sealed class AppController : IDisposable
     private CancellationTokenSource? _selectionCancellation;
     private bool _selectionInProgress;
     private bool _continuousModeActive;
+    private bool _isPaused;
     private ManualLookupWindow? _manualLookupWindow;
 
     public AppController(
@@ -94,6 +95,7 @@ public sealed class AppController : IDisposable
             ConfigureRecentLookupsHotkey,
             ConfigureExplainSelectionHotkey,
             SetSelectionMode,
+            TogglePaused,
             OpenArchiveFolder,
             Exit);
         _hotkeyServices[LookupCommand.Selection].Pressed += (_, _) => TriggerSelectionCommand();
@@ -130,6 +132,11 @@ public sealed class AppController : IDisposable
 
     private void TriggerSelectionCommand()
     {
+        if (_isPaused)
+        {
+            return;
+        }
+
         if (_preferences.SelectionMode == AppSelectionMode.Continuous)
         {
             ToggleContinuousSelection();
@@ -151,7 +158,7 @@ public sealed class AppController : IDisposable
 
     private void StartTextExplanationSelection()
     {
-        if (_selectionInProgress)
+        if (_isPaused || _selectionInProgress)
         {
             return;
         }
@@ -186,7 +193,7 @@ public sealed class AppController : IDisposable
 
     private void StartLookup(ScreenSelection selection)
     {
-        if (_selectionInProgress)
+        if (_isPaused || _selectionInProgress)
         {
             return;
         }
@@ -547,6 +554,11 @@ public sealed class AppController : IDisposable
 
     private void ShowManualLookupWindow()
     {
+        if (_isPaused)
+        {
+            return;
+        }
+
         if (_manualLookupWindow is not null && _manualLookupWindow.IsVisible)
         {
             _manualLookupWindow.Activate();
@@ -574,6 +586,11 @@ public sealed class AppController : IDisposable
 
     private void ShowRecentLookups()
     {
+        if (_isPaused)
+        {
+            return;
+        }
+
         IReadOnlyList<LookupPresentation> recent;
         try
         {
@@ -670,6 +687,55 @@ public sealed class AppController : IDisposable
         }
     }
 
+    private void UnregisterCommandHotkeys()
+    {
+        foreach (var service in _hotkeyServices.Values)
+        {
+            service.Unregister();
+        }
+    }
+
+    private void TogglePaused()
+    {
+        if (_isPaused)
+        {
+            Resume();
+            return;
+        }
+
+        Pause();
+    }
+
+    private void Pause()
+    {
+        _isPaused = true;
+        _continuousModeActive = false;
+        _selectionCancellation?.Cancel();
+        _manualLookupWindow?.Close();
+        _rightDragSelectionService.Stop();
+        UnregisterCommandHotkeys();
+        UpdateTray();
+        _trayIconService.ShowInfo("Realtime Translate Codex paused", "Use the tray menu to resume.");
+    }
+
+    private void Resume()
+    {
+        try
+        {
+            RegisterCommandHotkeys();
+            _rightDragSelectionService.Start();
+            _isPaused = false;
+            UpdateTray();
+            _trayIconService.ShowInfo("Realtime Translate Codex resumed", "Word lookup is active again.");
+        }
+        catch (Exception ex)
+        {
+            UnregisterCommandHotkeys();
+            _rightDragSelectionService.Stop();
+            _trayIconService.ShowInfo("Resume failed", ex.Message);
+        }
+    }
+
     private void RegisterCommandHotkey(LookupCommand command, HotkeyGesture hotkey)
     {
         _hotkeyServices[command].Register(hotkey);
@@ -677,6 +743,11 @@ public sealed class AppController : IDisposable
 
     private void EnsureHotkeyRegistered()
     {
+        if (_isPaused)
+        {
+            return;
+        }
+
         foreach (var command in Enum.GetValues<LookupCommand>())
         {
             var service = _hotkeyServices[command];
@@ -718,6 +789,6 @@ public sealed class AppController : IDisposable
 
     private void UpdateTray()
     {
-        _trayIconService.UpdatePreferences(_preferences, _continuousModeActive);
+        _trayIconService.UpdatePreferences(_preferences, _continuousModeActive, _isPaused);
     }
 }

@@ -17,6 +17,7 @@ public sealed class TrayIconService : IDisposable
     private readonly Forms.ToolStripMenuItem _configureExplainSelectionHotkeyItem;
     private readonly Forms.ToolStripMenuItem _oneShotModeItem;
     private readonly Forms.ToolStripMenuItem _continuousModeItem;
+    private readonly Forms.ToolStripMenuItem _pauseItem;
 
     public TrayIconService(
         Action selectWord,
@@ -28,6 +29,7 @@ public sealed class TrayIconService : IDisposable
         Action configureRecentLookupsHotkey,
         Action configureExplainSelectionHotkey,
         Action<AppSelectionMode> setSelectionMode,
+        Action togglePaused,
         Action openArchive,
         Action exit)
     {
@@ -48,6 +50,10 @@ public sealed class TrayIconService : IDisposable
         {
             CheckOnClick = false,
         };
+        _pauseItem = new Forms.ToolStripMenuItem("Pause", null, (_, _) => togglePaused())
+        {
+            CheckOnClick = false,
+        };
 
         menu.Items.Add(_selectWordItem);
         menu.Items.Add(_manualLookupItem);
@@ -60,6 +66,8 @@ public sealed class TrayIconService : IDisposable
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(_oneShotModeItem);
         menu.Items.Add(_continuousModeItem);
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(_pauseItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Open archive folder", null, (_, _) => openArchive());
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -76,7 +84,7 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.DoubleClick += (_, _) => selectWord();
     }
 
-    public void UpdatePreferences(UserPreferences preferences, bool continuousModeActive)
+    public void UpdatePreferences(UserPreferences preferences, bool continuousModeActive, bool isPaused)
     {
         _selectWordItem.Text = preferences.SelectionMode == AppSelectionMode.Continuous
             ? $"Toggle selection mode ({preferences.Hotkey})"
@@ -91,6 +99,9 @@ public sealed class TrayIconService : IDisposable
         _oneShotModeItem.Checked = preferences.SelectionMode == AppSelectionMode.OneShot;
         _continuousModeItem.Checked = preferences.SelectionMode == AppSelectionMode.Continuous;
         _continuousModeItem.Text = continuousModeActive ? "Continuous selection (active)" : "Continuous selection";
+        _pauseItem.Text = isPaused ? "Resume" : "Pause";
+        _pauseItem.Checked = isPaused;
+        _notifyIcon.Text = isPaused ? "Realtime Translate Codex (paused)" : "Realtime Translate Codex";
     }
 
     public void ShowInfo(string title, string message)

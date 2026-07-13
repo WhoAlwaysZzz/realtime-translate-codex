@@ -43,7 +43,7 @@ If a translation overlay disappeared before you read it, press the recent lookup
 
 For complex sentences or short paragraphs, press the explanation hotkey, drag a rectangle around the text, and wait for the AI explanation panel. The panel shows OCR text, Chinese translation, key notes, and a copy button.
 
-The app stays in the tray. Right-click the tray icon to configure the selection hotkey, configure the manual lookup hotkey, configure the recent lookups hotkey, configure the explanation hotkey, choose the selection mode, select a word, manually type a word, replay recent words, explain selected text, open the archive folder, or exit.
+The app stays in the tray. Right-click the tray icon to configure the selection hotkey, configure the manual lookup hotkey, configure the recent lookups hotkey, configure the explanation hotkey, choose the selection mode, select a word, manually type a word, replay recent words, explain selected text, pause or resume all lookup input, open the archive folder, or exit. While paused, right-drag selection and all global lookup hotkeys are disabled until you choose `Resume` from the tray menu.
 
 Selection modes:
 

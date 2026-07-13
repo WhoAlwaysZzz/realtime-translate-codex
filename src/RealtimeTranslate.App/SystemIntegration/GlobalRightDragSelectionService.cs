@@ -42,7 +42,7 @@ public sealed class GlobalRightDragSelectionService : IDisposable
         }
     }
 
-    public void Dispose()
+    public void Stop()
     {
         if (_hook != IntPtr.Zero)
         {
@@ -50,7 +50,13 @@ public sealed class GlobalRightDragSelectionService : IDisposable
             _hook = IntPtr.Zero;
         }
 
+        ResetDragState();
         CloseOverlay();
+    }
+
+    public void Dispose()
+    {
+        Stop();
     }
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
