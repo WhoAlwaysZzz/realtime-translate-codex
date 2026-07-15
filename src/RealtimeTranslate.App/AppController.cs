@@ -43,6 +43,7 @@ public sealed class AppController : IDisposable
     private bool _selectionInProgress;
     private bool _continuousModeActive;
     private bool _isPaused;
+    private bool _saveScreenshots = true;
     private ManualLookupWindow? _manualLookupWindow;
 
     public AppController(
@@ -95,6 +96,7 @@ public sealed class AppController : IDisposable
             ConfigureRecentLookupsHotkey,
             ConfigureExplainSelectionHotkey,
             SetSelectionMode,
+            ToggleScreenshotSaving,
             TogglePaused,
             OpenArchiveFolder,
             Exit);
@@ -313,7 +315,7 @@ public sealed class AppController : IDisposable
 
         try
         {
-            capture = await _screenshotService.CaptureAsync(selection);
+            capture = await _screenshotService.CaptureAsync(selection, _saveScreenshots);
             var candidates = await _ocrService.RecognizeAsync(capture.CroppedImagePng);
             sourceText = _ocrTextComposer.Compose(candidates);
             if (string.IsNullOrWhiteSpace(sourceText))
@@ -365,7 +367,7 @@ public sealed class AppController : IDisposable
 
         try
         {
-            capture = await _screenshotService.CaptureAsync(selection);
+            capture = await _screenshotService.CaptureAsync(selection, _saveScreenshots);
             candidates = await _ocrService.RecognizeAsync(capture.CroppedImagePng);
             var recognizedText = candidates
                 .OrderByDescending(candidate => candidate.Confidence)
@@ -706,6 +708,17 @@ public sealed class AppController : IDisposable
         Pause();
     }
 
+    private void ToggleScreenshotSaving()
+    {
+        _saveScreenshots = !_saveScreenshots;
+        UpdateTray();
+        _trayIconService.ShowInfo(
+            _saveScreenshots ? "Screenshot saving enabled" : "Screenshot saving disabled",
+            _saveScreenshots
+                ? "Word lookup and text explanation screenshots will be saved."
+                : "OCR will continue without saving screenshots to disk.");
+    }
+
     private void Pause()
     {
         _isPaused = true;
@@ -789,6 +802,6 @@ public sealed class AppController : IDisposable
 
     private void UpdateTray()
     {
-        _trayIconService.UpdatePreferences(_preferences, _continuousModeActive, _isPaused);
+        _trayIconService.UpdatePreferences(_preferences, _continuousModeActive, _isPaused, _saveScreenshots);
     }
 }

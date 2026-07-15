@@ -17,14 +17,16 @@ public sealed class WindowsScreenshotService : IScreenshotService
         _screenshotsDirectory = Path.Combine(archiveRoot, "screenshots");
     }
 
-    public Task<CapturedSelection> CaptureAsync(ScreenSelection selection, CancellationToken cancellationToken = default)
+    public Task<CapturedSelection> CaptureAsync(
+        ScreenSelection selection,
+        bool saveScreenshot = true,
+        CancellationToken cancellationToken = default)
     {
         if (selection.IsEmpty)
         {
             throw new ArgumentException("Selection cannot be empty.", nameof(selection));
         }
 
-        Directory.CreateDirectory(_screenshotsDirectory);
         var bounds = Forms.SystemInformation.VirtualScreen;
         using var full = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
         using (var graphics = Graphics.FromImage(full))
@@ -32,8 +34,13 @@ public sealed class WindowsScreenshotService : IScreenshotService
             graphics.CopyFromScreen(bounds.Left, bounds.Top, 0, 0, bounds.Size, CopyPixelOperation.SourceCopy);
         }
 
-        var screenshotPath = Path.Combine(_screenshotsDirectory, $"{DateTimeOffset.Now:yyyyMMdd-HHmmss-fff}.png");
-        full.Save(screenshotPath, ImageFormat.Png);
+        var screenshotPath = string.Empty;
+        if (saveScreenshot)
+        {
+            Directory.CreateDirectory(_screenshotsDirectory);
+            screenshotPath = Path.Combine(_screenshotsDirectory, $"{DateTimeOffset.Now:yyyyMMdd-HHmmss-fff}.png");
+            full.Save(screenshotPath, ImageFormat.Png);
+        }
 
         var cropRect = ClampSelectionToBounds(selection, bounds, CropPaddingPixels);
         using var cropped = full.Clone(cropRect, PixelFormat.Format32bppArgb);

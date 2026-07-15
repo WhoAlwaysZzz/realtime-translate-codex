@@ -43,7 +43,7 @@ If a translation overlay disappeared before you read it, press the recent lookup
 
 For complex sentences or short paragraphs, press the explanation hotkey, drag a rectangle around the text, and wait for the AI explanation panel. The panel shows OCR text, Chinese translation, key notes, and a copy button.
 
-The app stays in the tray. Right-click the tray icon to configure the selection hotkey, configure the manual lookup hotkey, configure the recent lookups hotkey, configure the explanation hotkey, choose the selection mode, select a word, manually type a word, replay recent words, explain selected text, pause or resume all lookup input, open the archive folder, or exit. While paused, right-drag selection and all global lookup hotkeys are disabled until you choose `Resume` from the tray menu.
+The app stays in the tray. Right-click the tray icon to configure hotkeys, choose the selection mode, toggle screenshot saving, pause or resume lookup input, open the archive folder, or exit. Screenshot saving is enabled at every startup and applies to both word lookup and text explanation selections. Disabling it keeps OCR active without writing PNG files. Recent lookup replay never captures a screenshot. While paused, right-drag selection and all global lookup hotkeys are disabled until you choose `Resume` from the tray menu.
 
 Selection modes:
 
