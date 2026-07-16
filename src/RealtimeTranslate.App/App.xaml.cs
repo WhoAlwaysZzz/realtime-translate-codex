@@ -32,8 +32,7 @@ public partial class App : System.Windows.Application
             var aiOptions = aiSettingsStore.Load();
             var bundledDictionaryPath = Path.Combine(AppContext.BaseDirectory, "dictionary.tsv");
             var userDictionaryPath = Path.Combine(settings.ArchiveRoot, "dictionary.tsv");
-            var morphemesPath = Path.Combine(AppContext.BaseDirectory, "Data", "morphemes.json");
-            var wordInsightsPath = Path.Combine(AppContext.BaseDirectory, "Data", "word-insights.tsv");
+            var wordCardsPath = Path.Combine(AppContext.BaseDirectory, "Data", "word-cards.tsv");
             _controller = new AppController(
                 settings,
                 new WindowsSelectionService(),
@@ -42,7 +41,7 @@ public partial class App : System.Windows.Application
                 new OcrTextComposer(),
                 new BasicWordNormalizer(),
                 new EmbeddedDictionaryService([bundledDictionaryPath, userDictionaryPath]),
-                new MorphemeWordInsightService(morphemesPath, wordInsightsPath),
+                new MorphemeWordInsightService(wordCardsPath),
                 new WpfOverlayPresenter(),
                 new WpfTextExplanationPresenter(),
                 new OpenAiCompatibleTextExplanationService(new HttpClient(), aiOptions),

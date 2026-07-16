@@ -23,9 +23,9 @@ var tests = new (string Name, Action Body)[]
     ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
     ("OCR text composer joins words into readable text", OcrTextComposerJoinsWordsIntoReadableText),
-    ("word insights prefer curated cards", WordInsightsPreferCuratedCards),
-    ("word insights only use explicitly listed examples", WordInsightsRequireExplicitExamples),
-    ("bundled advanced words produce complete cards", BundledAdvancedWordsProduceCompleteCards),
+    ("word card index loads exact reviewed fields", WordCardIndexLoadsExactFields),
+    ("word card regressions reject false families", WordCardRegressionsRejectFalseFamilies),
+    ("random advanced word audit meets coverage target", RandomAdvancedWordAuditMeetsCoverageTarget),
 };
 
 var failed = 0;
@@ -253,69 +253,59 @@ static void OcrTextComposerJoinsWordsIntoReadableText()
     AssertEqual("This is complex, isn't it?", text);
 }
 
-static void WordInsightsPreferCuratedCards()
+static void WordCardIndexLoadsExactFields()
 {
     var root = CreateInsightFixture();
-    var service = new MorphemeWordInsightService(
-        Path.Combine(root, "morphemes.json"),
-        Path.Combine(root, "word-insights.tsv"));
+    var service = new MorphemeWordInsightService(Path.Combine(root, "word-cards.tsv"));
 
     var insight = service.Lookup("Ineffable");
 
-    AssertEqual("in-(not) + fa-(speak)", insight.Breakdown);
+    AssertEqual("ineffable（词基：无法形容的）", insight.Breakdown);
     AssertEqual("effable", insight.Family[0]);
     AssertEqual("sacred mysteries", insight.ContextHint);
+    AssertEqual(WordInsight.Empty, service.Lookup("not-in-index"));
 }
 
-static void WordInsightsRequireExplicitExamples()
-{
-    var root = CreateInsightFixture();
-    var service = new MorphemeWordInsightService(Path.Combine(root, "morphemes.json"));
-
-    var listed = service.Lookup("aberrant");
-    AssertTrue(listed.Breakdown.Contains("-err-", StringComparison.Ordinal), "expected an explicitly attested root");
-    AssertTrue(listed.Family.Contains("error"), "expected family words from the same morpheme group");
-    AssertEqual(string.Empty, service.Lookup("terror").Breakdown);
-}
-
-static void BundledAdvancedWordsProduceCompleteCards()
+static void WordCardRegressionsRejectFalseFamilies()
 {
     var appDirectory = FindAppSourceDirectory();
-    var dictionary = new EmbeddedDictionaryService(Path.Combine(appDirectory, "dictionary.tsv"));
-    var insights = new MorphemeWordInsightService(
-        Path.Combine(appDirectory, "Data", "morphemes.json"),
-        Path.Combine(appDirectory, "Data", "word-insights.tsv"));
+    var service = new MorphemeWordInsightService(Path.Combine(appDirectory, "Data", "word-cards.tsv"));
 
-    foreach (var word in new[] { "ineffable", "benevolent", "circumspect", "magnanimous", "antediluvian", "perspicacious" })
+    var videos = service.Lookup("videos");
+    AssertTrue(videos.Breakdown.StartsWith("video（", StringComparison.Ordinal), "videos must be analyzed from video");
+    AssertTrue(videos.Family.Contains("video"), "videos must link back to video");
+    AssertTrue(!videos.Family.Contains("point") && !videos.Family.Contains("punch"), "videos must not contain unrelated family words");
+    AssertTrue(!service.Lookup("point").Family.Contains("punch"), "point and punch are not a word family");
+    AssertTrue(!service.Lookup("punch").Family.Contains("point"), "punch and point are not a word family");
+}
+
+static void RandomAdvancedWordAuditMeetsCoverageTarget()
+{
+    var appDirectory = FindAppSourceDirectory();
+    var insights = new MorphemeWordInsightService(Path.Combine(appDirectory, "Data", "word-cards.tsv"));
+    var words = File.ReadAllLines(Path.Combine(FindRepositoryRoot(), "tests", "Data", "advanced-word-audit-sample.txt"))
+        .Where(line => line.Length > 0).ToArray();
+    var withFamily = 0;
+
+    AssertEqual(200, words.Length);
+    foreach (var word in words)
     {
-        var normalized = new NormalizedWord(word, word, [word]);
-        var lookup = dictionary.Lookup(normalized);
         var insight = insights.Lookup(word);
-
-        AssertTrue(lookup.Found, $"expected a bundled translation for '{word}'");
-        AssertTrue(insight.Breakdown.Length > 0, $"expected a breakdown for '{word}'");
-        AssertTrue(insight.Family.Count >= 3, $"expected a word family for '{word}'");
-        AssertTrue(insight.ContextHint.Length > 0, $"expected a context hint for '{word}'");
+        AssertTrue(insight.Breakdown.Length > 0, $"expected a safe base or construction for '{word}'");
+        AssertTrue(insight.Family.Distinct(StringComparer.OrdinalIgnoreCase).Count() == insight.Family.Count, $"duplicate family member for '{word}'");
+        AssertTrue(!insight.Family.Contains(word, StringComparer.OrdinalIgnoreCase), $"family repeats queried word '{word}'");
+        withFamily += insight.Family.Count > 0 ? 1 : 0;
     }
+    AssertTrue(withFamily >= 180, $"expected at least 90% family coverage, got {withFamily}/{words.Length}");
 }
 
 static string CreateInsightFixture()
 {
     var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
     Directory.CreateDirectory(root);
-    File.WriteAllText(Path.Combine(root, "morphemes.json"), """
-        {
-          "err-": {
-            "forms": [{ "root": "-err-", "form": "err", "loc": "embedded" }],
-            "meaning": ["stray"],
-            "theme": "movement",
-            "examples": ["aberrant", "err", "error"]
-          }
-        }
-        """);
     File.WriteAllText(
-        Path.Combine(root, "word-insights.tsv"),
-        "ineffable\tin-(not) + fa-(speak)\teffable,ineffability\tsacred mysteries");
+        Path.Combine(root, "word-cards.tsv"),
+        "ineffable\tineffable（词基：无法形容的）\teffable,ineffability\tsacred mysteries");
     return root;
 }
 
@@ -338,6 +328,11 @@ static void AssertTrue(bool value, string message)
 static string FindBundledDictionary()
 {
     return Path.Combine(FindAppSourceDirectory(), "dictionary.tsv");
+}
+
+static string FindRepositoryRoot()
+{
+    return Directory.GetParent(Directory.GetParent(FindAppSourceDirectory())!.FullName)!.FullName;
 }
 
 static string FindAppSourceDirectory()

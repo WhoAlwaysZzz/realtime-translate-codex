@@ -108,7 +108,7 @@ word	definition1; definition2
 
 Load order is: small embedded fallback dictionary, bundled ECDICT dictionary, then the user override dictionary. Later entries override earlier entries with the same word.
 
-Vocabulary cards supplement ECDICT translations with the bundled MIT-licensed Morphemes dataset and a small reviewed `Data/word-insights.tsv` layer. Automatic breakdowns are shown only when the upstream dataset explicitly lists the looked-up word as an example; otherwise the app omits uncertain morphology instead of guessing from spelling.
+Vocabulary cards use ECDICT headwords and inflection metadata plus precision-filtered MorphyNet derivational relationships. Only spelling- and part-of-speech-compatible productive affixes are displayed. Families contain direct derivations or inflectional forms; the app no longer expands through a merely shared historical root. `tools/Build-WordCards.py` generates the local `Data/word-cards.tsv` index and a deterministic 200-word advanced-vocabulary audit sample.
 
 To regenerate the bundled dictionary from ECDICT:
 

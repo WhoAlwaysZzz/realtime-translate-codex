@@ -159,13 +159,13 @@ public sealed class LookupOverlayWindow : Window
 
         if (!string.IsNullOrWhiteSpace(presentation.WordBreakdown))
         {
-            var breakdown = CreateInsightText($"构词  {presentation.WordBreakdown}", UiTheme.TextPrimary, 3);
+            var breakdown = CreateInsightText($"词基/构词  {presentation.WordBreakdown}", UiTheme.TextPrimary, 3);
             root.Children.Add(breakdown);
         }
 
         if (presentation.WordFamily is { Count: > 0 })
         {
-            var family = CreateInsightText($"同族  {string.Join(" · ", presentation.WordFamily.Take(3))}", UiTheme.TextSecondary, 4);
+            var family = CreateInsightText($"词族/词形  {string.Join(" · ", presentation.WordFamily.Take(3))}", UiTheme.TextSecondary, 4);
             root.Children.Add(family);
         }
 

@@ -1,0 +1,10 @@
+MorphyNet English derivational and inflectional morphology data
+Source: https://github.com/kbatsuren/MorphyNet
+Paper: https://aclanthology.org/2021.sigmorphon-1.5/
+
+Licensed under Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0):
+https://creativecommons.org/licenses/by-sa/3.0/
+
+Data/word-cards.tsv contains adapted relationships derived from MorphyNet and is
+distributed under CC BY-SA 3.0. Application source code remains under the
+project's own software license.

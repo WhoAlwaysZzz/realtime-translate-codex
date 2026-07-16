@@ -10,10 +10,10 @@ This project uses dictionary data generated from ECDICT:
 
 The generated app dictionary keeps only the word and Chinese translation fields needed for local lookup.
 
-## Morphemes
+## MorphyNet
 
-The bundled `Data/morphemes.json` is from Colin Goldberg's `morphemes` project:
+The generated `Data/word-cards.tsv` contains relationships derived from the English MorphyNet dataset:
 
-https://github.com/colingoldberg/morphemes
+https://github.com/kbatsuren/MorphyNet
 
-Copyright (c) 2019 Colin Goldberg. Licensed under the MIT License. A copy is included at `Data/MORPHEMES-LICENSE.txt`.
+MorphyNet is licensed under CC BY-SA 3.0. The generated data file is distributed under the same license. Attribution details are included at `Data/MORPHYNET-NOTICE.txt`.
