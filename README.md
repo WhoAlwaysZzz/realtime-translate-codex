@@ -9,6 +9,7 @@ Windows word lookup and text explanation overlay for visual novels, games, web p
 
 - Right-drag or hotkey-driven OCR selection from any visible desktop window.
 - Offline English-to-Chinese dictionary lookup with normalization and basic lemmatization.
+- Offline word-part breakdowns, related word families, and compact usage-context hints when reliable local data is available.
 - Compact stacked overlays, recent lookup replay, query counts, and manual keyboard lookup.
 - Optional AI sentence and short-paragraph explanation through an OpenAI-compatible API.
 - Local JSONL records and screenshots for lookup history.
@@ -106,6 +107,8 @@ word	definition1; definition2
 ```
 
 Load order is: small embedded fallback dictionary, bundled ECDICT dictionary, then the user override dictionary. Later entries override earlier entries with the same word.
+
+Vocabulary cards supplement ECDICT translations with the bundled MIT-licensed Morphemes dataset and a small reviewed `Data/word-insights.tsv` layer. Automatic breakdowns are shown only when the upstream dataset explicitly lists the looked-up word as an example; otherwise the app omits uncertain morphology instead of guessing from spelling.
 
 To regenerate the bundled dictionary from ECDICT:
 

@@ -27,6 +27,7 @@ public sealed class AppController : IDisposable
     private readonly OcrTextComposer _ocrTextComposer;
     private readonly IWordNormalizer _wordNormalizer;
     private readonly IDictionaryService _dictionaryService;
+    private readonly IWordInsightService _wordInsightService;
     private readonly IOverlayPresenter _overlayPresenter;
     private readonly ITextExplanationPresenter _textExplanationPresenter;
     private readonly ITextExplanationService _textExplanationService;
@@ -54,6 +55,7 @@ public sealed class AppController : IDisposable
         OcrTextComposer ocrTextComposer,
         IWordNormalizer wordNormalizer,
         IDictionaryService dictionaryService,
+        IWordInsightService wordInsightService,
         IOverlayPresenter overlayPresenter,
         ITextExplanationPresenter textExplanationPresenter,
         ITextExplanationService textExplanationService,
@@ -70,6 +72,7 @@ public sealed class AppController : IDisposable
         _ocrTextComposer = ocrTextComposer;
         _wordNormalizer = wordNormalizer;
         _dictionaryService = dictionaryService;
+        _wordInsightService = wordInsightService;
         _overlayPresenter = overlayPresenter;
         _textExplanationPresenter = textExplanationPresenter;
         _textExplanationService = textExplanationService;
@@ -390,10 +393,20 @@ public sealed class AppController : IDisposable
             var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
             var queryCount = _queryCounter.Increment(countKey);
             var primaryDefinition = definitions.FirstOrDefault() ?? string.Empty;
+            var insight = _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
             var subtitle = lookup.Found
                 ? $"lemma: {lookup.EntryWord} · OCR: {recognizedText}"
                 : $"lemma: {normalized.Lemma} · OCR: {recognizedText}";
-            var presentation = new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found);
+            var presentation = new LookupPresentation(
+                title,
+                subtitle,
+                definitions,
+                primaryDefinition,
+                queryCount,
+                IsError: !lookup.Found,
+                WordBreakdown: insight.Breakdown,
+                WordFamily: insight.Family,
+                ContextHint: insight.ContextHint);
 
             SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates));
             ShowAndRemember(presentation);
@@ -439,11 +452,21 @@ public sealed class AppController : IDisposable
         var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
         var queryCount = _queryCounter.Increment(countKey);
         var primaryDefinition = definitions.FirstOrDefault() ?? string.Empty;
+        var insight = _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
         var subtitle = lookup.Found
             ? $"lemma: {lookup.EntryWord} · {source}"
             : $"lemma: {normalized.Lemma} · {source}";
 
-        ShowAndRemember(new LookupPresentation(title, subtitle, definitions, primaryDefinition, queryCount, IsError: !lookup.Found));
+        ShowAndRemember(new LookupPresentation(
+            title,
+            subtitle,
+            definitions,
+            primaryDefinition,
+            queryCount,
+            IsError: !lookup.Found,
+            WordBreakdown: insight.Breakdown,
+            WordFamily: insight.Family,
+            ContextHint: insight.ContextHint));
     }
 
     private void ShowAndRemember(LookupPresentation presentation)

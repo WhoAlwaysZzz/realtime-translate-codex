@@ -12,7 +12,7 @@ namespace RealtimeTranslate.App.Presentation;
 
 public sealed class LookupOverlayWindow : Window
 {
-    private static readonly TimeSpan DisplayDuration = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DisplayDuration = TimeSpan.FromSeconds(8);
     private bool _closing;
 
     public LookupOverlayWindow(LookupPresentation presentation)
@@ -22,7 +22,7 @@ public sealed class LookupOverlayWindow : Window
         ShowInTaskbar = false;
         ShowActivated = false;
         Topmost = true;
-        Width = 380;
+        Width = 440;
         SizeToContent = SizeToContent.Height;
         Background = WpfBrushes.Transparent;
         AllowsTransparency = true;
@@ -82,6 +82,9 @@ public sealed class LookupOverlayWindow : Window
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var accent = new Border
         {
@@ -91,7 +94,7 @@ public sealed class LookupOverlayWindow : Window
             CornerRadius = new CornerRadius(2),
             Background = presentation.IsError ? UiTheme.Brush(UiTheme.Danger) : UiTheme.Brush(UiTheme.Accent),
         };
-        Grid.SetRowSpan(accent, 3);
+        Grid.SetRowSpan(accent, 6);
         root.Children.Add(accent);
 
         var topRow = new Grid();
@@ -154,6 +157,38 @@ public sealed class LookupOverlayWindow : Window
             root.Children.Add(extra);
         }
 
+        if (!string.IsNullOrWhiteSpace(presentation.WordBreakdown))
+        {
+            var breakdown = CreateInsightText($"构词  {presentation.WordBreakdown}", UiTheme.TextPrimary, 3);
+            root.Children.Add(breakdown);
+        }
+
+        if (presentation.WordFamily is { Count: > 0 })
+        {
+            var family = CreateInsightText($"同族  {string.Join(" · ", presentation.WordFamily.Take(3))}", UiTheme.TextSecondary, 4);
+            root.Children.Add(family);
+        }
+
+        if (!string.IsNullOrWhiteSpace(presentation.ContextHint))
+        {
+            var context = CreateInsightText($"〔常用于：{presentation.ContextHint}〕", UiTheme.AccentWarm, 5);
+            root.Children.Add(context);
+        }
+
         return UiTheme.CreatePanel(root, new Thickness(14, 11, 14, 13));
+    }
+
+    private static WpfTextBlock CreateInsightText(string text, System.Windows.Media.Color color, int row)
+    {
+        var block = new WpfTextBlock
+        {
+            Text = text,
+            Margin = new Thickness(0, 7, 0, 0),
+            FontSize = 12,
+            Foreground = UiTheme.Brush(color),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        Grid.SetRow(block, row);
+        return block;
     }
 }

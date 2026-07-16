@@ -23,6 +23,9 @@ var tests = new (string Name, Action Body)[]
     ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
     ("OCR text composer joins words into readable text", OcrTextComposerJoinsWordsIntoReadableText),
+    ("word insights prefer curated cards", WordInsightsPreferCuratedCards),
+    ("word insights only use explicitly listed examples", WordInsightsRequireExplicitExamples),
+    ("bundled advanced words produce complete cards", BundledAdvancedWordsProduceCompleteCards),
 };
 
 var failed = 0;
@@ -250,6 +253,72 @@ static void OcrTextComposerJoinsWordsIntoReadableText()
     AssertEqual("This is complex, isn't it?", text);
 }
 
+static void WordInsightsPreferCuratedCards()
+{
+    var root = CreateInsightFixture();
+    var service = new MorphemeWordInsightService(
+        Path.Combine(root, "morphemes.json"),
+        Path.Combine(root, "word-insights.tsv"));
+
+    var insight = service.Lookup("Ineffable");
+
+    AssertEqual("in-(not) + fa-(speak)", insight.Breakdown);
+    AssertEqual("effable", insight.Family[0]);
+    AssertEqual("sacred mysteries", insight.ContextHint);
+}
+
+static void WordInsightsRequireExplicitExamples()
+{
+    var root = CreateInsightFixture();
+    var service = new MorphemeWordInsightService(Path.Combine(root, "morphemes.json"));
+
+    var listed = service.Lookup("aberrant");
+    AssertTrue(listed.Breakdown.Contains("-err-", StringComparison.Ordinal), "expected an explicitly attested root");
+    AssertTrue(listed.Family.Contains("error"), "expected family words from the same morpheme group");
+    AssertEqual(string.Empty, service.Lookup("terror").Breakdown);
+}
+
+static void BundledAdvancedWordsProduceCompleteCards()
+{
+    var appDirectory = FindAppSourceDirectory();
+    var dictionary = new EmbeddedDictionaryService(Path.Combine(appDirectory, "dictionary.tsv"));
+    var insights = new MorphemeWordInsightService(
+        Path.Combine(appDirectory, "Data", "morphemes.json"),
+        Path.Combine(appDirectory, "Data", "word-insights.tsv"));
+
+    foreach (var word in new[] { "ineffable", "benevolent", "circumspect", "magnanimous", "antediluvian", "perspicacious" })
+    {
+        var normalized = new NormalizedWord(word, word, [word]);
+        var lookup = dictionary.Lookup(normalized);
+        var insight = insights.Lookup(word);
+
+        AssertTrue(lookup.Found, $"expected a bundled translation for '{word}'");
+        AssertTrue(insight.Breakdown.Length > 0, $"expected a breakdown for '{word}'");
+        AssertTrue(insight.Family.Count >= 3, $"expected a word family for '{word}'");
+        AssertTrue(insight.ContextHint.Length > 0, $"expected a context hint for '{word}'");
+    }
+}
+
+static string CreateInsightFixture()
+{
+    var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    File.WriteAllText(Path.Combine(root, "morphemes.json"), """
+        {
+          "err-": {
+            "forms": [{ "root": "-err-", "form": "err", "loc": "embedded" }],
+            "meaning": ["stray"],
+            "theme": "movement",
+            "examples": ["aberrant", "err", "error"]
+          }
+        }
+        """);
+    File.WriteAllText(
+        Path.Combine(root, "word-insights.tsv"),
+        "ineffable\tin-(not) + fa-(speak)\teffable,ineffability\tsacred mysteries");
+    return root;
+}
+
 static void AssertEqual<T>(T expected, T actual)
 {
     if (!EqualityComparer<T>.Default.Equals(expected, actual))
@@ -268,11 +337,16 @@ static void AssertTrue(bool value, string message)
 
 static string FindBundledDictionary()
 {
+    return Path.Combine(FindAppSourceDirectory(), "dictionary.tsv");
+}
+
+static string FindAppSourceDirectory()
+{
     var directory = new DirectoryInfo(AppContext.BaseDirectory);
     while (directory is not null)
     {
-        var path = Path.Combine(directory.FullName, "src", "RealtimeTranslate.App", "dictionary.tsv");
-        if (File.Exists(path))
+        var path = Path.Combine(directory.FullName, "src", "RealtimeTranslate.App");
+        if (File.Exists(Path.Combine(path, "dictionary.tsv")))
         {
             return path;
         }
@@ -280,7 +354,7 @@ static string FindBundledDictionary()
         directory = directory.Parent;
     }
 
-    throw new FileNotFoundException("Could not locate src/RealtimeTranslate.App/dictionary.tsv");
+    throw new DirectoryNotFoundException("Could not locate src/RealtimeTranslate.App.");
 }
 
 internal sealed class StaticResponseHandler : HttpMessageHandler

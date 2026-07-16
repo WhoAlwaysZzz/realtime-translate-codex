@@ -9,3 +9,11 @@ This project uses dictionary data generated from ECDICT:
 - Copyright: Linwei
 
 The generated app dictionary keeps only the word and Chinese translation fields needed for local lookup.
+
+## Morphemes
+
+The bundled `Data/morphemes.json` is from Colin Goldberg's `morphemes` project:
+
+https://github.com/colingoldberg/morphemes
+
+Copyright (c) 2019 Colin Goldberg. Licensed under the MIT License. A copy is included at `Data/MORPHEMES-LICENSE.txt`.

@@ -6,4 +6,7 @@ public sealed record LookupPresentation(
     IReadOnlyList<string> Definitions,
     string PrimaryDefinition,
     int QueryCount,
-    bool IsError = false);
+    bool IsError = false,
+    string WordBreakdown = "",
+    IReadOnlyList<string>? WordFamily = null,
+    string ContextHint = "");
