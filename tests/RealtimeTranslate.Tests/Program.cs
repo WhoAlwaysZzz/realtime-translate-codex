@@ -63,6 +63,7 @@ static void NormalizerHandlesPunctuationAndInflections()
     AssertEqual("guess", normalizer.Normalize("\"guessed!\"").Lemma);
     AssertEqual("child", normalizer.Normalize("children").Lemma);
     AssertEqual("run", normalizer.Normalize("running").Lemma);
+    AssertEqual("everlasting", normalizer.Normalize("everlasting").Candidates[0]);
     AssertEqual("future", normalizer.Normalize("Future.").Lemma);
 }
 

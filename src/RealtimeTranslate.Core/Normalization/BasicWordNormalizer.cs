@@ -46,15 +46,16 @@ public sealed partial class BasicWordNormalizer : IWordNormalizer
             return NormalizedWord.Empty;
         }
 
-        var candidates = BuildCandidates(displayWord);
-        return new NormalizedWord(displayWord, candidates[0], candidates);
+        var lemma = Lemmatize(displayWord);
+        var candidates = BuildCandidates(displayWord, lemma);
+        return new NormalizedWord(displayWord, lemma, candidates);
     }
 
-    private static IReadOnlyList<string> BuildCandidates(string word)
+    private static IReadOnlyList<string> BuildCandidates(string word, string lemma)
     {
         var candidates = new List<string>();
-        AddCandidate(candidates, Lemmatize(word));
         AddCandidate(candidates, word);
+        AddCandidate(candidates, lemma);
         return candidates;
     }
 
