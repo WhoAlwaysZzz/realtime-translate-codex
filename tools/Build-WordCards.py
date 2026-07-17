@@ -10,6 +10,8 @@ import random
 import re
 from pathlib import Path
 
+import openpyxl
+
 
 PREFIXES = {
     "un": "不/相反", "in": "不/向内", "im": "不/向内", "ir": "不", "il": "不",
@@ -20,12 +22,31 @@ PREFIXES = {
     "fore": "在前", "out": "超过/向外", "trans": "跨越/转变", "ultra": "超越",
     "semi": "半", "multi": "多", "micro": "微小", "macro": "宏大",
     "auto": "自身/自动", "bi": "二", "tri": "三",
+    "be": "使/加强语气",
 }
 
 # Surface-valid relations that are lexicalized or misleading for a learner-facing card.
 DENIED_RELATIONS = {
     ("gloss", "glossary"),
     ("hear", "overhear"),
+    ("corporate", "incorporate"),
+}
+
+DENIED_MORPHOLEX = {
+    "commute", "consist", "consistent", "consistently", "denote",
+    "discontented", "everlasting", "forsake", "glossary", "hospitality", "incorporate", "intent",
+    "jewellery", "nickname", "overhear", "paralyse", "retort", "withhold",
+}
+
+BOUND_ROOTS = {
+    "bene": "好/善", "mal": "坏/恶", "cred": "相信", "dict": "说",
+    "duc": "引导", "duct": "引导", "fer": "携带", "flect": "弯曲",
+    "chrono": "时间", "flu": "流动", "fract": "打破", "graph": "写/记录", "ject": "投掷",
+    "log": "说/学科", "magn": "大", "morph": "形态", "pel": "推动",
+    "plic": "折叠", "pose": "放置", "rupt": "破裂", "scrib": "写",
+    "script": "写", "sect": "切", "sens": "感觉", "spect": "看",
+    "struct": "建造", "terr": "恐惧", "tract": "拉", "vert": "转",
+    "vis": "看", "vol": "意愿",
 }
 
 SUFFIXES = {
@@ -89,6 +110,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ecdict", required=True, type=Path)
     parser.add_argument("--derivational", required=True, type=Path)
+    parser.add_argument("--morpholex", type=Path)
     parser.add_argument("--contexts", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--audit-sample", type=Path)
@@ -116,15 +138,43 @@ def surface_matches(source: str, target: str, affix: str, kind: str) -> bool:
     )
 
 
-def load_contexts(path: Path | None) -> dict[str, str]:
-    contexts: dict[str, str] = {}
+def load_curated(path: Path | None) -> dict[str, tuple[str, str, str]]:
+    curated: dict[str, tuple[str, str, str]] = {}
     if path is None or not path.exists():
-        return contexts
+        return curated
     with path.open(encoding="utf-8", newline="") as source:
         for row in csv.reader(source, delimiter="\t"):
             if len(row) == 4 and row[0] and not row[0].startswith("#"):
-                contexts[row[0].lower()] = row[3].strip()
-    return contexts
+                curated[row[0].lower()] = (row[1].strip(), row[2].strip(), row[3].strip())
+    return curated
+
+
+def load_morpholex(path: Path | None) -> dict[str, list[tuple[str, str]]]:
+    if path is None or not path.exists():
+        return {}
+    workbook = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    analyses: dict[str, list[tuple[str, str]]] = {}
+    token_pattern = re.compile(r"<([a-z]+)<|\(([a-z]+)\)|>([a-z]+)>", re.I)
+    for sheet in workbook.worksheets[1:33]:
+        rows = sheet.iter_rows(values_only=True)
+        header = list(next(rows))
+        if "Word" not in header or "MorphoLexSegm" not in header:
+            continue
+        word_index, segmentation_index = header.index("Word"), header.index("MorphoLexSegm")
+        for row in rows:
+            if not row[word_index] or not row[segmentation_index]:
+                continue
+            parts = []
+            for match in token_pattern.finditer(str(row[segmentation_index]).lower()):
+                if match.group(1):
+                    parts.append(("prefix", match.group(1)))
+                elif match.group(2):
+                    parts.append(("root", match.group(2)))
+                else:
+                    parts.append(("suffix", match.group(3)))
+            if len(parts) >= 2:
+                analyses[str(row[word_index]).lower()] = parts
+    return analyses
 
 
 def main() -> None:
@@ -181,13 +231,43 @@ def main() -> None:
             outgoing[source_word].append((target_word, affix, kind))
             incoming[target_word].append((source_word, affix, kind))
 
-    contexts = load_contexts(args.contexts)
+    curated = load_curated(args.contexts)
+    morpholex = load_morpholex(args.morpholex)
 
     def known(word: str) -> bool:
         return entries[word]["rank"] < 100_000 or entries[word]["core"]
 
     def rank(words: set[str]) -> list[str]:
         return sorted(words, key=lambda word: (entries[word]["rank"], len(word), word))
+
+    def morpholex_breakdown(word: str) -> tuple[str, list[str]] | None:
+        if word in DENIED_MORPHOLEX or word not in morpholex:
+            return None
+        parts = morpholex[word]
+        root_parts = [value for kind, value in parts if kind == "root"]
+        if not root_parts:
+            return None
+        independent_roots = [root for root in root_parts if root in entries and known(root)]
+        if len(root_parts) > 1 and len(independent_roots) != len(root_parts):
+            return None
+        if len(root_parts) == 1 and not independent_roots and root_parts[0] not in BOUND_ROOTS:
+            return None
+        rendered = []
+        for kind, value in parts:
+            if kind == "prefix":
+                if value not in PREFIXES:
+                    return None
+                rendered.append(f"{value}-（{PREFIXES[value]}）")
+            elif kind == "suffix":
+                if value not in SUFFIXES:
+                    return None
+                if not word.endswith(value) and not (value == "y" and word.endswith("ly")):
+                    return None
+                rendered.append(f"-{value}（{SUFFIXES[value][0]}）")
+            else:
+                meaning = BOUND_ROOTS.get(value)
+                rendered.append(f"{value}（{meaning}）" if meaning else value)
+        return " + ".join(rendered), independent_roots
 
     output_rows = []
     advanced_total = advanced_family = 0
@@ -202,11 +282,12 @@ def main() -> None:
         elif derivations:
             base, affix, kind = derivations[0]
             affix_meaning = PREFIXES[affix] if kind == "prefix" else SUFFIXES[affix][0]
-            marker = f"{affix}-" if kind == "prefix" else f"-{affix}"
-            breakdown = f"{base}（{entries[base]['meaning']}） + {marker}（{affix_meaning}）"
+            marker = f"{affix}-（{affix_meaning}）"
+            breakdown = f"{marker} + {base}" if kind == "prefix" else f"{base} + -{affix}（{affix_meaning}）"
         else:
             base = lemma
-            breakdown = f"{word}（词基：{entries[word]['meaning']}）"
+            morpholex_result = morpholex_breakdown(word)
+            breakdown = morpholex_result[0] if morpholex_result else f"{word}（词基：{entries[word]['meaning']}）"
 
         family: list[str] = []
         tiers = [
@@ -214,6 +295,8 @@ def main() -> None:
             {base} if base != word else set(),
             set(forms.get(lemma, set())) if lemma == word else set(),
         ]
+        if lemma == word and not derivations and (morpholex_result := morpholex_breakdown(word)) and len(morpholex_result[1]) == 1:
+            tiers.insert(0, set(morpholex_result[1]))
         for tier in tiers:
             for candidate in rank(tier):
                 if candidate != word and candidate not in family:
@@ -223,7 +306,12 @@ def main() -> None:
             if len(family) == 3:
                 break
 
-        output_rows.append((word, breakdown, ",".join(family), contexts.get(word, "")))
+        if word in curated:
+            breakdown, curated_family, context = curated[word]
+            family = [candidate for candidate in curated_family.split(",") if candidate and candidate != word]
+        else:
+            context = ""
+        output_rows.append((word, breakdown, ",".join(family[:3]), context))
         tags = entries[word]["tags"]
         if "cet6" in tags and "cet4" not in tags and len(word) >= 6:
             advanced_total += 1

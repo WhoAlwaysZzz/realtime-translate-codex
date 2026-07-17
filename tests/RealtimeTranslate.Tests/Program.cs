@@ -302,6 +302,11 @@ static void WordCardRegressionsRejectFalseFamilies()
     AssertTrue(!videos.Family.Contains("point") && !videos.Family.Contains("punch"), "videos must not contain unrelated family words");
     AssertTrue(!service.Lookup("point").Family.Contains("punch"), "point and punch are not a word family");
     AssertTrue(!service.Lookup("punch").Family.Contains("point"), "punch and point are not a word family");
+    AssertEqual("in-（不） + effable（可表达的）", service.Lookup("ineffable").Breakdown);
+    AssertEqual("bene-（善） + vol-（意愿） + -ent（具有……的）", service.Lookup("benevolent").Breakdown);
+    AssertTrue(service.Lookup("incorporate").Breakdown.Contains("词基：", StringComparison.Ordinal), "incorporate must not be explained as negative corporate");
+    AssertTrue(service.Lookup("glossary").Breakdown.Contains("词基：", StringComparison.Ordinal), "glossary must not be explained as gloss plus a productive suffix");
+    AssertTrue(service.Lookup("withhold").Breakdown.Contains("词基：", StringComparison.Ordinal), "withhold must not imply the modern meaning of with plus hold");
 }
 
 static void RandomAdvancedWordAuditMeetsCoverageTarget()
@@ -311,6 +316,7 @@ static void RandomAdvancedWordAuditMeetsCoverageTarget()
     var words = File.ReadAllLines(Path.Combine(FindRepositoryRoot(), "tests", "Data", "advanced-word-audit-sample.txt"))
         .Where(line => line.Length > 0).ToArray();
     var withFamily = 0;
+    var withMorphology = 0;
 
     AssertEqual(200, words.Length);
     foreach (var word in words)
@@ -320,8 +326,11 @@ static void RandomAdvancedWordAuditMeetsCoverageTarget()
         AssertTrue(insight.Family.Distinct(StringComparer.OrdinalIgnoreCase).Count() == insight.Family.Count, $"duplicate family member for '{word}'");
         AssertTrue(!insight.Family.Contains(word, StringComparer.OrdinalIgnoreCase), $"family repeats queried word '{word}'");
         withFamily += insight.Family.Count > 0 ? 1 : 0;
+        withMorphology += !insight.Breakdown.Contains("词基：", StringComparison.Ordinal)
+            && !insight.Breakdown.Contains("词形变化", StringComparison.Ordinal) ? 1 : 0;
     }
     AssertTrue(withFamily >= 180, $"expected at least 90% family coverage, got {withFamily}/{words.Length}");
+    AssertTrue(withMorphology >= 70, $"expected at least 35% reviewed morphology coverage, got {withMorphology}/{words.Length}");
 }
 
 static string CreateInsightFixture()
