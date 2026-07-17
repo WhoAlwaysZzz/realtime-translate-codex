@@ -31,6 +31,7 @@ public partial class App : System.Windows.Application
             aiSettingsStore.EnsureTemplateExists();
             var aiOptions = aiSettingsStore.Load();
             var bundledDictionaryPath = Path.Combine(AppContext.BaseDirectory, "dictionary.tsv");
+            var structuredDictionaryPath = Path.Combine(AppContext.BaseDirectory, "Data", "lexicon.jsonl.gz");
             var userDictionaryPath = Path.Combine(settings.ArchiveRoot, "dictionary.tsv");
             var wordCardsPath = Path.Combine(AppContext.BaseDirectory, "Data", "word-cards.tsv");
             _controller = new AppController(
@@ -40,7 +41,9 @@ public partial class App : System.Windows.Application
                 new WindowsOcrService(),
                 new OcrTextComposer(),
                 new BasicWordNormalizer(),
-                new EmbeddedDictionaryService([bundledDictionaryPath, userDictionaryPath]),
+                new StructuredDictionaryService(
+                    structuredDictionaryPath,
+                    new EmbeddedDictionaryService([bundledDictionaryPath, userDictionaryPath])),
                 new MorphemeWordInsightService(wordCardsPath),
                 new WpfOverlayPresenter(),
                 new WpfTextExplanationPresenter(),

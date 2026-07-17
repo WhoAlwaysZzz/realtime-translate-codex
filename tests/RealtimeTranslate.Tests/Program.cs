@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.IO.Compression;
 using RealtimeTranslate.Core.Dictionary;
 using RealtimeTranslate.Core.Explanation;
 using RealtimeTranslate.Core.History;
@@ -15,6 +16,7 @@ var tests = new (string Name, Action Body)[]
     ("dictionary falls back from recognized word to lemma", DictionaryFallsBackFromRecognizedWordToLemma),
     ("dictionary covers common desktop and developer words", DictionaryCoversCommonDesktopAndDeveloperWords),
     ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
+    ("structured dictionary retains senses and frequency", StructuredDictionaryRetainsSensesAndFrequency),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
     ("recent lookup store replays newest entries", RecentLookupStoreReplaysNewestEntries),
@@ -264,6 +266,29 @@ static void WordCardIndexLoadsExactFields()
     AssertEqual("effable", insight.Family[0]);
     AssertEqual("sacred mysteries", insight.ContextHint);
     AssertEqual(WordInsight.Empty, service.Lookup("not-in-index"));
+}
+
+static void StructuredDictionaryRetainsSensesAndFrequency()
+{
+    var root = Path.Combine(Path.GetTempPath(), "realtime-translate-tests", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    var path = Path.Combine(root, "lexicon.jsonl.gz");
+    using (var file = File.Create(path))
+    using (var gzip = new GZipStream(file, CompressionMode.Compress))
+    using (var writer = new StreamWriter(gzip))
+    {
+        writer.WriteLine("{\"w\":\"bark\",\"f\":2,\"s\":[{\"p\":\"n\",\"z\":\"树皮、吠声\",\"e\":[\"tough protective covering of trees\"]},{\"p\":\"v\",\"z\":\"吠、叫骂\",\"e\":[\"make barking sounds\"]}]}");
+    }
+
+    var service = new StructuredDictionaryService(path, new EmbeddedDictionaryService());
+    var lookup = service.Lookup(new NormalizedWord("bark", "bark", ["bark"]));
+
+    AssertTrue(lookup.Found, "expected structured dictionary hit");
+    AssertEqual(2, lookup.FrequencyBand);
+    AssertEqual(2, lookup.Senses!.Count);
+    AssertEqual("v", lookup.Senses[1].PartOfSpeech);
+    AssertEqual("吠、叫骂", lookup.Senses[1].ShortDefinition);
+    AssertTrue(lookup.Senses[1].EnglishDefinitions.Contains("make barking sounds"), "expected English evidence for ranking");
 }
 
 static void WordCardRegressionsRejectFalseFamilies()
