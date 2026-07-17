@@ -108,12 +108,24 @@ word	definition1; definition2
 
 Load order is: small embedded fallback dictionary, bundled ECDICT dictionary, then the user override dictionary. Later entries override earlier entries with the same word.
 
-Vocabulary cards use ECDICT headwords and inflection metadata plus precision-filtered MorphyNet derivational relationships. Only spelling- and part-of-speech-compatible productive affixes are displayed. Families contain direct derivations or inflectional forms; the app no longer expands through a merely shared historical root. `tools/Build-WordCards.py` generates the local `Data/word-cards.tsv` index and a deterministic 200-word advanced-vocabulary audit sample.
+Vocabulary cards use a structured local lexicon generated from ECDICT and Open English WordNet evidence. The runtime keeps Chinese short senses, parts of speech, English definitions/examples, and BNC/FRQ frequency bands. A second build step fuses precision-filtered MorphyNet relations with selected MorphoLex analyses. Only reviewed modern derivations, useful compounds, and inflectional forms are displayed; uncertain analyses are omitted and replaced by a short WordNet usage/context hint.
+
+Word lookup captures two in-memory crops from one screenshot: a tight word crop and a wider line-context crop. The line context ranks senses locally. A sense is promoted only when its evidence clearly wins; otherwise the card displays compact numbered senses instead of guessing.
+
+The deterministic 200-word advanced-vocabulary audit is stored in `tests/Data/rendered-card-audit.tsv`. Tests enforce 100% translations, visible frequency bands, at least 90% family/form coverage, at least 35% reviewed morphology coverage, and at least 95% visible morphology-or-usage coverage. Regression cases also reject known false relationships.
 
 To regenerate the bundled dictionary from ECDICT:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\tools\Import-Ecdict.ps1
+```
+
+To regenerate the structured lexicon and enriched cards after downloading the source datasets:
+
+```powershell
+python .\tools\Build-Structured-Lexicon.py --ecdict "$env:TEMP\ecdict.csv" --wordnet-dir "$env:TEMP\english-wordnet-2025-json" --output .\src\RealtimeTranslate.App\Data\lexicon.jsonl.gz
+python .\tools\Build-WordCards.py --ecdict "$env:TEMP\ecdict.csv" --derivational "$env:TEMP\morphynet-eng\eng.derivational.v1.tsv" --morpholex "$env:TEMP\MorphoLEX_en.xlsx" --contexts .\src\RealtimeTranslate.App\Data\word-insights.tsv --output .\src\RealtimeTranslate.App\Data\word-cards.tsv --audit-sample .\tests\Data\advanced-word-audit-sample.txt
+dotnet run --project .\tests\RealtimeTranslate.Tests\RealtimeTranslate.Tests.csproj -- --export-card-audit .\tests\Data\rendered-card-audit.tsv
 ```
 
 See `THIRD_PARTY_NOTICES.md` for ECDICT attribution and license details.

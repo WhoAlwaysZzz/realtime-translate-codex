@@ -1,0 +1,9 @@
+MorphoLex English
+Source: https://github.com/hugomailhot/MorphoLex-en
+Citation: Sanchez-Gutierrez, Mailhot, Deacon, and Wilson, MorphoLex (2018).
+
+Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International (CC BY-NC-SA 4.0):
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+Selected analyses in Data/word-cards.tsv are adapted from this work.
