@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media.Animation;
 using System.Windows.Media;
 using RealtimeTranslate.Core.Models;
+using RealtimeTranslate.Core.Presentation;
 using ControlsOrientation = System.Windows.Controls.Orientation;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfTextBlock = System.Windows.Controls.TextBlock;
@@ -100,6 +101,7 @@ public sealed class LookupOverlayWindow : Window
         var topRow = new Grid();
         topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        topRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var title = new WpfTextBlock
         {
@@ -128,6 +130,17 @@ public sealed class LookupOverlayWindow : Window
         };
         Grid.SetColumn(primary, 1);
         topRow.Children.Add(primary);
+
+        var frequency = new WpfTextBlock
+        {
+            Text = LookupCardTextFormatter.Frequency(presentation.FrequencyBand),
+            Margin = new Thickness(10, 0, 0, 0),
+            FontSize = 12,
+            Foreground = UiTheme.Brush(UiTheme.TextSecondary),
+            VerticalAlignment = VerticalAlignment.Top,
+        };
+        Grid.SetColumn(frequency, 2);
+        topRow.Children.Add(frequency);
 
         Grid.SetRow(topRow, 0);
         root.Children.Add(topRow);
@@ -159,19 +172,19 @@ public sealed class LookupOverlayWindow : Window
 
         if (!string.IsNullOrWhiteSpace(presentation.WordBreakdown))
         {
-            var breakdown = CreateInsightText($"词基/构词  {presentation.WordBreakdown}", UiTheme.TextPrimary, 3);
+            var breakdown = CreateInsightText(LookupCardTextFormatter.Breakdown(presentation), UiTheme.TextPrimary, 3);
             root.Children.Add(breakdown);
         }
 
         if (presentation.WordFamily is { Count: > 0 })
         {
-            var family = CreateInsightText($"词族/词形  {string.Join(" · ", presentation.WordFamily.Take(3))}", UiTheme.TextSecondary, 4);
+            var family = CreateInsightText(LookupCardTextFormatter.Family(presentation), UiTheme.TextSecondary, 4);
             root.Children.Add(family);
         }
 
         if (!string.IsNullOrWhiteSpace(presentation.ContextHint))
         {
-            var context = CreateInsightText($"〔常用于：{presentation.ContextHint}〕", UiTheme.AccentWarm, 5);
+            var context = CreateInsightText(LookupCardTextFormatter.Usage(presentation), UiTheme.AccentWarm, 5);
             root.Children.Add(context);
         }
 

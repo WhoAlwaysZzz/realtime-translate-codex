@@ -18,6 +18,7 @@ var tests = new (string Name, Action Body)[]
     ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
     ("structured dictionary retains senses and frequency", StructuredDictionaryRetainsSensesAndFrequency),
     ("context ranker selects or abstains honestly", ContextRankerSelectsOrAbstainsHonestly),
+    ("rendered card uses frequency and short usage fallback", RenderedCardUsesFrequencyAndShortUsageFallback),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
     ("recent lookup store replays newest entries", RecentLookupStoreReplaysNewestEntries),
@@ -29,7 +30,14 @@ var tests = new (string Name, Action Body)[]
     ("word card index loads exact reviewed fields", WordCardIndexLoadsExactFields),
     ("word card regressions reject false families", WordCardRegressionsRejectFalseFamilies),
     ("random advanced word audit meets coverage target", RandomAdvancedWordAuditMeetsCoverageTarget),
+    ("random rendered cards meet visible coverage target", RandomRenderedCardsMeetVisibleCoverageTarget),
 };
+
+if (args is ["--export-card-audit", var auditPath])
+{
+    ExportRenderedCardAudit(auditPath);
+    return 0;
+}
 
 var failed = 0;
 foreach (var test in tests)
@@ -316,6 +324,34 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(unknown.PrimaryDefinition.Contains("② v. 吠叫", StringComparison.Ordinal), "ambiguous card should flatten the second sense");
 }
 
+static void RenderedCardUsesFrequencyAndShortUsageFallback()
+{
+    var sense = new DictionarySense(
+        "v",
+        "逐渐减少、缩小",
+        ["become smaller or lose substance"],
+        ["their savings dwindled away", "our dwindling natural resources"]);
+    var lookup = new DictionaryLookupResult(true, "dwindle", ["v. 逐渐减少、缩小"], [sense], 2);
+    var ranking = new SenseRankingResult(sense.ShortDefinition, lookup.Definitions, true, sense);
+    var hint = new WordNetExampleUsageHintService().GetHint(lookup, ranking, "dwindle");
+    var presentation = new LookupPresentation(
+        "dwindle",
+        "lemma: dwindle",
+        lookup.Definitions,
+        ranking.PrimaryDefinition,
+        1,
+        WordBreakdown: string.Empty,
+        WordFamily: ["dwindled", "dwindling"],
+        ContextHint: hint,
+        FrequencyBand: lookup.FrequencyBand);
+
+    var lines = LookupCardTextFormatter.VisibleLines(presentation);
+    AssertEqual("dwindle ★★☆", lines[0]);
+    AssertEqual("逐渐减少、缩小", lines[1]);
+    AssertEqual("词族/词形  dwindled · dwindling", lines[2]);
+    AssertEqual("用法/语境  their savings dwindled away · our dwindling natural resources", lines[3]);
+}
+
 static void WordCardRegressionsRejectFalseFamilies()
 {
     var appDirectory = FindAppSourceDirectory();
@@ -329,9 +365,9 @@ static void WordCardRegressionsRejectFalseFamilies()
     AssertTrue(!service.Lookup("punch").Family.Contains("point"), "punch and point are not a word family");
     AssertEqual("in-（不） + effable（可表达的）", service.Lookup("ineffable").Breakdown);
     AssertEqual("bene-（善） + vol-（意愿） + -ent（具有……的）", service.Lookup("benevolent").Breakdown);
-    AssertTrue(service.Lookup("incorporate").Breakdown.Contains("词基：", StringComparison.Ordinal), "incorporate must not be explained as negative corporate");
-    AssertTrue(service.Lookup("glossary").Breakdown.Contains("词基：", StringComparison.Ordinal), "glossary must not be explained as gloss plus a productive suffix");
-    AssertTrue(service.Lookup("withhold").Breakdown.Contains("词基：", StringComparison.Ordinal), "withhold must not imply the modern meaning of with plus hold");
+    AssertEqual(string.Empty, service.Lookup("incorporate").Breakdown);
+    AssertEqual(string.Empty, service.Lookup("glossary").Breakdown);
+    AssertEqual(string.Empty, service.Lookup("withhold").Breakdown);
 }
 
 static void RandomAdvancedWordAuditMeetsCoverageTarget()
@@ -347,15 +383,101 @@ static void RandomAdvancedWordAuditMeetsCoverageTarget()
     foreach (var word in words)
     {
         var insight = insights.Lookup(word);
-        AssertTrue(insight.Breakdown.Length > 0, $"expected a safe base or construction for '{word}'");
         AssertTrue(insight.Family.Distinct(StringComparer.OrdinalIgnoreCase).Count() == insight.Family.Count, $"duplicate family member for '{word}'");
         AssertTrue(!insight.Family.Contains(word, StringComparer.OrdinalIgnoreCase), $"family repeats queried word '{word}'");
         withFamily += insight.Family.Count > 0 ? 1 : 0;
-        withMorphology += !insight.Breakdown.Contains("词基：", StringComparison.Ordinal)
+        withMorphology += insight.Breakdown.Length > 0
             && !insight.Breakdown.Contains("词形变化", StringComparison.Ordinal) ? 1 : 0;
     }
     AssertTrue(withFamily >= 180, $"expected at least 90% family coverage, got {withFamily}/{words.Length}");
     AssertTrue(withMorphology >= 70, $"expected at least 35% reviewed morphology coverage, got {withMorphology}/{words.Length}");
+}
+
+static void RandomRenderedCardsMeetVisibleCoverageTarget()
+{
+    var appDirectory = FindAppSourceDirectory();
+    var dictionary = new StructuredDictionaryService(
+        Path.Combine(appDirectory, "Data", "lexicon.jsonl.gz"),
+        new EmbeddedDictionaryService(Path.Combine(appDirectory, "dictionary.tsv")));
+    var insights = new MorphemeWordInsightService(Path.Combine(appDirectory, "Data", "word-cards.tsv"));
+    var ranker = new LocalContextSenseRanker();
+    var usage = new WordNetExampleUsageHintService();
+    var normalizer = new BasicWordNormalizer();
+    var words = File.ReadAllLines(Path.Combine(FindRepositoryRoot(), "tests", "Data", "advanced-word-audit-sample.txt"))
+        .Where(line => line.Length > 0).ToArray();
+    var withLearningHook = 0;
+
+    foreach (var word in words)
+    {
+        var lookup = dictionary.Lookup(normalizer.Normalize(word));
+        AssertTrue(lookup.Found, $"expected structured lookup for rendered card '{word}'");
+        var ranking = ranker.Rank(lookup, lookup.EntryWord, string.Empty);
+        var insight = insights.Lookup(word);
+        if (insight == WordInsight.Empty)
+        {
+            insight = insights.Lookup(lookup.EntryWord);
+        }
+        var hint = insight.ContextHint;
+        if (hint.Length == 0 && insight.Breakdown.Length == 0)
+        {
+            hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+        }
+        var presentation = new LookupPresentation(
+            word,
+            $"lemma: {lookup.EntryWord}",
+            ranking.Definitions,
+            ranking.PrimaryDefinition,
+            1,
+            WordBreakdown: insight.Breakdown,
+            WordFamily: insight.Family,
+            ContextHint: hint,
+            FrequencyBand: lookup.FrequencyBand);
+        var visible = LookupCardTextFormatter.VisibleLines(presentation);
+
+        AssertTrue(visible.Count >= 2, $"rendered card '{word}' has no definition");
+        AssertTrue(visible[0].Contains('★'), $"rendered card '{word}' has no frequency band");
+        AssertTrue(!string.Join(" | ", visible).Contains("词基：", StringComparison.Ordinal), $"rendered card '{word}' exposes a fake base line");
+        withLearningHook += insight.Breakdown.Length > 0 || hint.Length > 0 ? 1 : 0;
+    }
+
+    AssertTrue(withLearningHook >= 190, $"expected at least 95% visible morphology-or-usage coverage, got {withLearningHook}/{words.Length}");
+}
+
+static void ExportRenderedCardAudit(string outputPath)
+{
+    var appDirectory = FindAppSourceDirectory();
+    var dictionary = new StructuredDictionaryService(
+        Path.Combine(appDirectory, "Data", "lexicon.jsonl.gz"),
+        new EmbeddedDictionaryService(Path.Combine(appDirectory, "dictionary.tsv")));
+    var insights = new MorphemeWordInsightService(Path.Combine(appDirectory, "Data", "word-cards.tsv"));
+    var ranker = new LocalContextSenseRanker();
+    var usage = new WordNetExampleUsageHintService();
+    var normalizer = new BasicWordNormalizer();
+    var words = File.ReadAllLines(Path.Combine(FindRepositoryRoot(), "tests", "Data", "advanced-word-audit-sample.txt"))
+        .Where(line => line.Length > 0).ToArray();
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+    using var writer = new StreamWriter(outputPath, false, new System.Text.UTF8Encoding(false));
+    writer.WriteLine("word\tvisible card lines");
+    foreach (var word in words)
+    {
+        var lookup = dictionary.Lookup(normalizer.Normalize(word));
+        var ranking = ranker.Rank(lookup, lookup.EntryWord, string.Empty);
+        var insight = insights.Lookup(word);
+        if (insight == WordInsight.Empty)
+        {
+            insight = insights.Lookup(lookup.EntryWord);
+        }
+        var hint = insight.ContextHint;
+        if (hint.Length == 0 && insight.Breakdown.Length == 0)
+        {
+            hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+        }
+        var presentation = new LookupPresentation(
+            word, $"lemma: {lookup.EntryWord}", ranking.Definitions, ranking.PrimaryDefinition, 1,
+            WordBreakdown: insight.Breakdown, WordFamily: insight.Family,
+            ContextHint: hint, FrequencyBand: lookup.FrequencyBand);
+        writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}");
+    }
 }
 
 static string CreateInsightFixture()

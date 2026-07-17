@@ -28,7 +28,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
 
         if (senses.Count == 1)
         {
-            return new SenseRankingResult(senses[0].ShortDefinition, [Format(senses[0])], true);
+            return new SenseRankingResult(senses[0].ShortDefinition, [Format(senses[0])], true, senses[0]);
         }
 
         var contextTokens = Tokens(context).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -46,7 +46,8 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             return new SenseRankingResult(
                 ordered[0].Sense.ShortDefinition,
                 ordered.Select(item => Format(item.Sense)).ToArray(),
-                true);
+                true,
+                ordered[0].Sense);
         }
 
         var flat = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));

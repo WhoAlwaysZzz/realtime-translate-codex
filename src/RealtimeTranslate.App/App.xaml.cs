@@ -45,6 +45,7 @@ public partial class App : System.Windows.Application
                     structuredDictionaryPath,
                     new EmbeddedDictionaryService([bundledDictionaryPath, userDictionaryPath])),
                 new LocalContextSenseRanker(),
+                new WordNetExampleUsageHintService(),
                 new MorphemeWordInsightService(wordCardsPath),
                 new WpfOverlayPresenter(),
                 new WpfTextExplanationPresenter(),

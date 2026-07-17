@@ -14,7 +14,7 @@ import openpyxl
 
 
 PREFIXES = {
-    "un": "不/相反", "in": "不/向内", "im": "不/向内", "ir": "不", "il": "不",
+    "un": "不/相反", "in": "不", "im": "不", "ir": "不", "il": "不",
     "dis": "否定/分离", "re": "再次/返回", "pre": "之前", "post": "之后",
     "non": "非", "mis": "错误地", "over": "过度/在上", "under": "不足/在下",
     "inter": "在……之间", "sub": "在下/次级", "super": "超越/在上",
@@ -30,6 +30,7 @@ DENIED_RELATIONS = {
     ("gloss", "glossary"),
     ("hear", "overhear"),
     ("corporate", "incorporate"),
+    ("casual", "casualty"),
 }
 
 DENIED_MORPHOLEX = {
@@ -247,7 +248,7 @@ def main() -> None:
         root_parts = [value for kind, value in parts if kind == "root"]
         if not root_parts:
             return None
-        independent_roots = [root for root in root_parts if root in entries and known(root)]
+        independent_roots = [root for root in root_parts if root in entries and known(root) and root not in BOUND_ROOTS]
         if len(root_parts) > 1 and len(independent_roots) != len(root_parts):
             return None
         if len(root_parts) == 1 and not independent_roots and root_parts[0] not in BOUND_ROOTS:
@@ -287,7 +288,7 @@ def main() -> None:
         else:
             base = lemma
             morpholex_result = morpholex_breakdown(word)
-            breakdown = morpholex_result[0] if morpholex_result else f"{word}（词基：{entries[word]['meaning']}）"
+            breakdown = morpholex_result[0] if morpholex_result else ""
 
         family: list[str] = []
         tiers = [

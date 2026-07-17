@@ -9,4 +9,5 @@ public sealed record LookupPresentation(
     bool IsError = false,
     string WordBreakdown = "",
     IReadOnlyList<string>? WordFamily = null,
-    string ContextHint = "");
+    string ContextHint = "",
+    int FrequencyBand = 0);

@@ -28,6 +28,7 @@ public sealed class AppController : IDisposable
     private readonly IWordNormalizer _wordNormalizer;
     private readonly IDictionaryService _dictionaryService;
     private readonly ISenseRanker _senseRanker;
+    private readonly IUsageHintService _usageHintService;
     private readonly IWordInsightService _wordInsightService;
     private readonly IOverlayPresenter _overlayPresenter;
     private readonly ITextExplanationPresenter _textExplanationPresenter;
@@ -57,6 +58,7 @@ public sealed class AppController : IDisposable
         IWordNormalizer wordNormalizer,
         IDictionaryService dictionaryService,
         ISenseRanker senseRanker,
+        IUsageHintService usageHintService,
         IWordInsightService wordInsightService,
         IOverlayPresenter overlayPresenter,
         ITextExplanationPresenter textExplanationPresenter,
@@ -75,6 +77,7 @@ public sealed class AppController : IDisposable
         _wordNormalizer = wordNormalizer;
         _dictionaryService = dictionaryService;
         _senseRanker = senseRanker;
+        _usageHintService = usageHintService;
         _wordInsightService = wordInsightService;
         _overlayPresenter = overlayPresenter;
         _textExplanationPresenter = textExplanationPresenter;
@@ -401,7 +404,12 @@ public sealed class AppController : IDisposable
             var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
             var queryCount = _queryCounter.Increment(countKey);
             var primaryDefinition = ranking.PrimaryDefinition;
-            var insight = _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
+            var insight = LookupInsight(normalized, lookup);
+            var usageHint = insight.ContextHint;
+            if (usageHint.Length == 0 && insight.Breakdown.Length == 0)
+            {
+                usageHint = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+            }
             var subtitle = lookup.Found
                 ? $"lemma: {lookup.EntryWord} · OCR: {recognizedText}"
                 : $"lemma: {normalized.Lemma} · OCR: {recognizedText}";
@@ -414,7 +422,8 @@ public sealed class AppController : IDisposable
                 IsError: !lookup.Found,
                 WordBreakdown: insight.Breakdown,
                 WordFamily: insight.Family,
-                ContextHint: insight.ContextHint);
+                ContextHint: usageHint,
+                FrequencyBand: lookup.FrequencyBand);
 
             SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates));
             ShowAndRemember(presentation);
@@ -463,7 +472,12 @@ public sealed class AppController : IDisposable
         var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
         var queryCount = _queryCounter.Increment(countKey);
         var primaryDefinition = ranking.PrimaryDefinition;
-        var insight = _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
+        var insight = LookupInsight(normalized, lookup);
+        var usageHint = insight.ContextHint;
+        if (usageHint.Length == 0 && insight.Breakdown.Length == 0)
+        {
+            usageHint = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+        }
         var subtitle = lookup.Found
             ? $"lemma: {lookup.EntryWord} · {source}"
             : $"lemma: {normalized.Lemma} · {source}";
@@ -477,7 +491,8 @@ public sealed class AppController : IDisposable
             IsError: !lookup.Found,
             WordBreakdown: insight.Breakdown,
             WordFamily: insight.Family,
-            ContextHint: insight.ContextHint));
+            ContextHint: usageHint,
+            FrequencyBand: lookup.FrequencyBand));
     }
 
     private void ShowAndRemember(LookupPresentation presentation)
@@ -721,6 +736,14 @@ public sealed class AppController : IDisposable
         {
             RegisterCommandHotkey(command, _preferences.GetHotkey(command));
         }
+    }
+
+    private WordInsight LookupInsight(NormalizedWord normalized, DictionaryLookupResult lookup)
+    {
+        var surface = _wordInsightService.Lookup(normalized.DisplayWord);
+        return surface != WordInsight.Empty
+            ? surface
+            : _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
     }
 
     private void UnregisterCommandHotkeys()
