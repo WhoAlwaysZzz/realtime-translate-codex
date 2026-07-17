@@ -27,6 +27,7 @@ public sealed class AppController : IDisposable
     private readonly OcrTextComposer _ocrTextComposer;
     private readonly IWordNormalizer _wordNormalizer;
     private readonly IDictionaryService _dictionaryService;
+    private readonly ISenseRanker _senseRanker;
     private readonly IWordInsightService _wordInsightService;
     private readonly IOverlayPresenter _overlayPresenter;
     private readonly ITextExplanationPresenter _textExplanationPresenter;
@@ -55,6 +56,7 @@ public sealed class AppController : IDisposable
         OcrTextComposer ocrTextComposer,
         IWordNormalizer wordNormalizer,
         IDictionaryService dictionaryService,
+        ISenseRanker senseRanker,
         IWordInsightService wordInsightService,
         IOverlayPresenter overlayPresenter,
         ITextExplanationPresenter textExplanationPresenter,
@@ -72,6 +74,7 @@ public sealed class AppController : IDisposable
         _ocrTextComposer = ocrTextComposer;
         _wordNormalizer = wordNormalizer;
         _dictionaryService = dictionaryService;
+        _senseRanker = senseRanker;
         _wordInsightService = wordInsightService;
         _overlayPresenter = overlayPresenter;
         _textExplanationPresenter = textExplanationPresenter;
@@ -372,6 +375,8 @@ public sealed class AppController : IDisposable
         {
             capture = await _screenshotService.CaptureAsync(selection, _saveScreenshots);
             candidates = await _ocrService.RecognizeAsync(capture.CroppedImagePng);
+            var contextCandidates = await _ocrService.RecognizeAsync(capture.ContextImagePng);
+            var contextText = _ocrTextComposer.Compose(contextCandidates);
             var recognizedText = candidates
                 .OrderByDescending(candidate => candidate.Confidence)
                 .ThenByDescending(candidate => candidate.Text.Length)
@@ -388,11 +393,14 @@ public sealed class AppController : IDisposable
 
             var normalized = _wordNormalizer.Normalize(recognizedText);
             var lookup = _dictionaryService.Lookup(normalized);
-            var definitions = lookup.Found ? lookup.Definitions : ["未找到释义"];
+            var ranking = lookup.Found
+                ? _senseRanker.Rank(lookup, lookup.EntryWord, contextText)
+                : new SenseRankingResult("未找到释义", ["未找到释义"], false);
+            var definitions = ranking.Definitions;
             var title = string.IsNullOrWhiteSpace(normalized.DisplayWord) ? recognizedText : normalized.DisplayWord;
             var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
             var queryCount = _queryCounter.Increment(countKey);
-            var primaryDefinition = definitions.FirstOrDefault() ?? string.Empty;
+            var primaryDefinition = ranking.PrimaryDefinition;
             var insight = _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
             var subtitle = lookup.Found
                 ? $"lemma: {lookup.EntryWord} · OCR: {recognizedText}"
@@ -447,11 +455,14 @@ public sealed class AppController : IDisposable
     private void ShowDictionaryResult(NormalizedWord normalized, string source)
     {
         var lookup = _dictionaryService.Lookup(normalized);
-        var definitions = lookup.Found ? lookup.Definitions : ["未找到释义"];
+        var ranking = lookup.Found
+            ? _senseRanker.Rank(lookup, lookup.EntryWord, string.Empty)
+            : new SenseRankingResult("未找到释义", ["未找到释义"], false);
+        var definitions = ranking.Definitions;
         var title = normalized.DisplayWord;
         var countKey = string.IsNullOrWhiteSpace(normalized.Lemma) ? title : normalized.Lemma;
         var queryCount = _queryCounter.Increment(countKey);
-        var primaryDefinition = definitions.FirstOrDefault() ?? string.Empty;
+        var primaryDefinition = ranking.PrimaryDefinition;
         var insight = _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
         var subtitle = lookup.Found
             ? $"lemma: {lookup.EntryWord} · {source}"

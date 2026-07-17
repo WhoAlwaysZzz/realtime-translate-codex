@@ -40,7 +40,7 @@ public sealed class StructuredDictionaryService : IDictionaryService
             }
 
             var senses = entry.Senses
-                .Select(sense => new DictionarySense(sense.PartOfSpeech, sense.ShortDefinition, sense.EnglishDefinitions))
+                .Select(sense => new DictionarySense(sense.PartOfSpeech, sense.ShortDefinition, sense.EnglishDefinitions, sense.EnglishExamples))
                 .ToArray();
             return new DictionaryLookupResult(
                 true,
@@ -68,5 +68,6 @@ public sealed class StructuredDictionaryService : IDictionaryService
     private sealed record LexiconSense(
         [property: System.Text.Json.Serialization.JsonPropertyName("p")] string PartOfSpeech,
         [property: System.Text.Json.Serialization.JsonPropertyName("z")] string ShortDefinition,
-        [property: System.Text.Json.Serialization.JsonPropertyName("e")] IReadOnlyList<string> EnglishDefinitions);
+        [property: System.Text.Json.Serialization.JsonPropertyName("d")] IReadOnlyList<string> EnglishDefinitions,
+        [property: System.Text.Json.Serialization.JsonPropertyName("x")] IReadOnlyList<string> EnglishExamples);
 }

@@ -17,6 +17,7 @@ var tests = new (string Name, Action Body)[]
     ("dictionary covers common desktop and developer words", DictionaryCoversCommonDesktopAndDeveloperWords),
     ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
     ("structured dictionary retains senses and frequency", StructuredDictionaryRetainsSensesAndFrequency),
+    ("context ranker selects or abstains honestly", ContextRankerSelectsOrAbstainsHonestly),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
     ("recent lookup store replays newest entries", RecentLookupStoreReplaysNewestEntries),
@@ -277,7 +278,7 @@ static void StructuredDictionaryRetainsSensesAndFrequency()
     using (var gzip = new GZipStream(file, CompressionMode.Compress))
     using (var writer = new StreamWriter(gzip))
     {
-        writer.WriteLine("{\"w\":\"bark\",\"f\":2,\"s\":[{\"p\":\"n\",\"z\":\"树皮、吠声\",\"e\":[\"tough protective covering of trees\"]},{\"p\":\"v\",\"z\":\"吠、叫骂\",\"e\":[\"make barking sounds\"]}]}");
+        writer.WriteLine("{\"w\":\"bark\",\"f\":2,\"s\":[{\"p\":\"n\",\"z\":\"树皮、吠声\",\"d\":[\"tough protective covering of trees\"],\"x\":[]},{\"p\":\"v\",\"z\":\"吠、叫骂\",\"d\":[\"make barking sounds\"],\"x\":[\"the dog began to bark\"]}]}");
     }
 
     var service = new StructuredDictionaryService(path, new EmbeddedDictionaryService());
@@ -289,6 +290,30 @@ static void StructuredDictionaryRetainsSensesAndFrequency()
     AssertEqual("v", lookup.Senses[1].PartOfSpeech);
     AssertEqual("吠、叫骂", lookup.Senses[1].ShortDefinition);
     AssertTrue(lookup.Senses[1].EnglishDefinitions.Contains("make barking sounds"), "expected English evidence for ranking");
+}
+
+static void ContextRankerSelectsOrAbstainsHonestly()
+{
+    var senses = new[]
+    {
+        new DictionarySense("n", "树皮", ["tough protective covering of trees"], ["the bark protects the tree"]),
+        new DictionarySense("v", "吠叫", ["make barking sounds"], ["the dog began to bark"]),
+    };
+    var lookup = new DictionaryLookupResult(true, "bark", ["n. 树皮", "v. 吠叫"], senses, 2);
+    var ranker = new LocalContextSenseRanker();
+
+    var dog = ranker.Rank(lookup, "bark", "The dog began to bark at the stranger.");
+    AssertTrue(dog.IsConfident, "dog context should be confidently verbal");
+    AssertEqual("吠叫", dog.PrimaryDefinition);
+
+    var tree = ranker.Rank(lookup, "bark", "The bark protects the old tree.");
+    AssertTrue(tree.IsConfident, "article and tree context should be confidently nominal");
+    AssertEqual("树皮", tree.PrimaryDefinition);
+
+    var unknown = ranker.Rank(lookup, "bark", string.Empty);
+    AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
+    AssertTrue(unknown.PrimaryDefinition.Contains("① n. 树皮", StringComparison.Ordinal), "ambiguous card should flatten the first sense");
+    AssertTrue(unknown.PrimaryDefinition.Contains("② v. 吠叫", StringComparison.Ordinal), "ambiguous card should flatten the second sense");
 }
 
 static void WordCardRegressionsRejectFalseFamilies()

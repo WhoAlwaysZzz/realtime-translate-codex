@@ -10,6 +10,8 @@ namespace RealtimeTranslate.App.Capture;
 public sealed class WindowsScreenshotService : IScreenshotService
 {
     private const int CropPaddingPixels = 16;
+    private const int ContextHorizontalPaddingPixels = 420;
+    private const int ContextVerticalPaddingPixels = 48;
     private readonly string _screenshotsDirectory;
 
     public WindowsScreenshotService(string archiveRoot)
@@ -42,20 +44,26 @@ public sealed class WindowsScreenshotService : IScreenshotService
             full.Save(screenshotPath, ImageFormat.Png);
         }
 
-        var cropRect = ClampSelectionToBounds(selection, bounds, CropPaddingPixels);
-        using var cropped = full.Clone(cropRect, PixelFormat.Format32bppArgb);
-        using var stream = new MemoryStream();
-        cropped.Save(stream, ImageFormat.Png);
+        var wordCrop = CropToPng(full, ClampSelectionToBounds(selection, bounds, CropPaddingPixels, CropPaddingPixels));
+        var contextCrop = CropToPng(full, ClampSelectionToBounds(selection, bounds, ContextHorizontalPaddingPixels, ContextVerticalPaddingPixels));
 
-        return Task.FromResult(new CapturedSelection(selection, screenshotPath, stream.ToArray()));
+        return Task.FromResult(new CapturedSelection(selection, screenshotPath, wordCrop, contextCrop));
     }
 
-    private static Rectangle ClampSelectionToBounds(ScreenSelection selection, Rectangle bounds, int padding)
+    private static byte[] CropToPng(Bitmap full, Rectangle rectangle)
     {
-        var x = Math.Clamp(selection.X - bounds.Left - padding, 0, bounds.Width - 1);
-        var y = Math.Clamp(selection.Y - bounds.Top - padding, 0, bounds.Height - 1);
-        var right = Math.Clamp(selection.X + selection.Width - bounds.Left + padding, x + 1, bounds.Width);
-        var bottom = Math.Clamp(selection.Y + selection.Height - bounds.Top + padding, y + 1, bounds.Height);
+        using var cropped = full.Clone(rectangle, PixelFormat.Format32bppArgb);
+        using var stream = new MemoryStream();
+        cropped.Save(stream, ImageFormat.Png);
+        return stream.ToArray();
+    }
+
+    private static Rectangle ClampSelectionToBounds(ScreenSelection selection, Rectangle bounds, int horizontalPadding, int verticalPadding)
+    {
+        var x = Math.Clamp(selection.X - bounds.Left - horizontalPadding, 0, bounds.Width - 1);
+        var y = Math.Clamp(selection.Y - bounds.Top - verticalPadding, 0, bounds.Height - 1);
+        var right = Math.Clamp(selection.X + selection.Width - bounds.Left + horizontalPadding, x + 1, bounds.Width);
+        var bottom = Math.Clamp(selection.Y + selection.Height - bounds.Top + verticalPadding, y + 1, bounds.Height);
         return Rectangle.FromLTRB(x, y, right, bottom);
     }
 }

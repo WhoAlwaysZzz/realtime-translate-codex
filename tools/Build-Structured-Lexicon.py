@@ -22,6 +22,7 @@ def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ecdict", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--wordnet-dir", type=Path)
     return parser.parse_args()
 
 
@@ -58,8 +59,34 @@ def shorten(value: str) -> str:
     return "、".join(parts[:3])
 
 
+def load_wordnet(path: Path | None) -> dict[str, dict[str, tuple[list[str], list[str]]]]:
+    if path is None or not path.exists():
+        return {}
+    evidence: dict[str, dict[str, tuple[list[str], list[str]]]] = {}
+    pos_map = {"n": "n", "v": "v", "a": "adj", "s": "adj", "r": "adv"}
+    for json_path in path.glob("*.json"):
+        if json_path.name.startswith("entries-"):
+            continue
+        with json_path.open(encoding="utf-8") as source:
+            synsets = json.load(source)
+        for synset in synsets.values():
+            if not isinstance(synset, dict) or "members" not in synset:
+                continue
+            pos = pos_map.get(str(synset.get("partOfSpeech", "")), str(synset.get("partOfSpeech", "")))
+            definitions = [str(value) for value in synset.get("definition", [])]
+            examples = [str(value) for value in synset.get("example", [])]
+            for member in synset.get("members", []):
+                word = str(member).replace("_", " ").lower()
+                by_pos = evidence.setdefault(word, {})
+                current_definitions, current_examples = by_pos.setdefault(pos, ([], []))
+                current_definitions.extend(value for value in definitions if value not in current_definitions)
+                current_examples.extend(value for value in examples if value not in current_examples)
+    return evidence
+
+
 def main() -> None:
     args = arguments()
+    wordnet = load_wordnet(args.wordnet_dir)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     written = 0
     with args.ecdict.open(encoding="utf-8-sig", newline="") as source, gzip.open(args.output, "wt", encoding="utf-8", newline="\n") as target:
@@ -73,15 +100,21 @@ def main() -> None:
             english_by_pos: dict[str, list[str]] = {}
             for pos, definition in parse_lines(row.get("definition") or ""):
                 english_by_pos.setdefault(pos, []).append(definition)
-            senses = []
+            grouped: dict[str, dict[str, list[str] | str]] = {}
             for pos, translation in translations:
                 short = shorten(translation)
                 if not short:
                     continue
-                english = english_by_pos.get(pos, [])
-                if pos == "v" and not english:
-                    english = english_by_pos.get("", [])
-                senses.append({"p": pos, "z": short, "e": english[:8]})
+                item = grouped.setdefault(pos, {"z": [], "d": [], "x": []})
+                item["z"].extend(part for part in short.split("、") if part not in item["z"])
+            for pos, item in grouped.items():
+                definitions, examples = wordnet.get(word, {}).get(pos, (english_by_pos.get(pos, []), []))
+                item["d"] = definitions[:16]
+                item["x"] = examples[:12]
+            senses = [
+                {"p": pos, "z": "、".join(item["z"][:5]), "d": item["d"], "x": item["x"]}
+                for pos, item in grouped.items()
+            ]
             if not senses:
                 continue
             record = {"w": word, "f": frequency_band(row), "s": senses}
