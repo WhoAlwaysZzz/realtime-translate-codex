@@ -86,6 +86,7 @@ public sealed class LookupOverlayWindow : Window
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var accent = new Border
         {
@@ -156,6 +157,20 @@ public sealed class LookupOverlayWindow : Window
         Grid.SetRow(meta, 1);
         root.Children.Add(meta);
 
+        if (!presentation.IsError)
+        {
+            var alignment = new WpfTextBlock
+            {
+                Text = LookupCardTextFormatter.ContextAlignment(presentation),
+                Margin = new Thickness(0, 5, 0, 0),
+                FontSize = 11,
+                Foreground = UiTheme.Brush(UiTheme.TextSecondary),
+                TextWrapping = TextWrapping.Wrap,
+            };
+            Grid.SetRow(alignment, 2);
+            root.Children.Add(alignment);
+        }
+
         if (presentation.Definitions.Count > 1)
         {
             var extra = new WpfTextBlock
@@ -166,25 +181,25 @@ public sealed class LookupOverlayWindow : Window
                 Foreground = UiTheme.Brush(UiTheme.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
             };
-            Grid.SetRow(extra, 2);
+            Grid.SetRow(extra, 3);
             root.Children.Add(extra);
         }
 
         if (!string.IsNullOrWhiteSpace(presentation.WordBreakdown))
         {
-            var breakdown = CreateInsightText(LookupCardTextFormatter.Breakdown(presentation), UiTheme.TextPrimary, 3);
+            var breakdown = CreateInsightText(LookupCardTextFormatter.Breakdown(presentation), UiTheme.TextPrimary, 4);
             root.Children.Add(breakdown);
         }
 
         if (presentation.WordFamily is { Count: > 0 })
         {
-            var family = CreateInsightText(LookupCardTextFormatter.Family(presentation), UiTheme.TextSecondary, 4);
+            var family = CreateInsightText(LookupCardTextFormatter.Family(presentation), UiTheme.TextSecondary, 5);
             root.Children.Add(family);
         }
 
         if (!string.IsNullOrWhiteSpace(presentation.ContextHint))
         {
-            var context = CreateInsightText(LookupCardTextFormatter.Usage(presentation), UiTheme.AccentWarm, 5);
+            var context = CreateInsightText(LookupCardTextFormatter.Usage(presentation), UiTheme.AccentWarm, 6);
             root.Children.Add(context);
         }
 

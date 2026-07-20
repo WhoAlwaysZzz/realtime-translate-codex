@@ -313,14 +313,17 @@ static void ContextRankerSelectsOrAbstainsHonestly()
 
     var dog = ranker.Rank(lookup, "bark", "The dog began to bark at the stranger.");
     AssertTrue(dog.IsConfident, "dog context should be confidently verbal");
+    AssertTrue(dog.WasContextAligned, "dog context should be marked as aligned");
     AssertEqual("吠叫", dog.PrimaryDefinition);
 
     var tree = ranker.Rank(lookup, "bark", "The bark protects the old tree.");
     AssertTrue(tree.IsConfident, "article and tree context should be confidently nominal");
+    AssertTrue(tree.WasContextAligned, "tree context should be marked as aligned");
     AssertEqual("树皮", tree.PrimaryDefinition);
 
     var unknown = ranker.Rank(lookup, "bark", string.Empty);
     AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
+    AssertTrue(!unknown.WasContextAligned, "missing context must not be marked as aligned");
     AssertTrue(unknown.PrimaryDefinition.Contains("① n. 树皮", StringComparison.Ordinal), "ambiguous card should flatten the first sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("② v. 吠叫", StringComparison.Ordinal), "ambiguous card should flatten the second sense");
 }
@@ -349,8 +352,12 @@ static void RenderedCardUsesFrequencyAndShortUsageFallback()
     var lines = LookupCardTextFormatter.VisibleLines(presentation);
     AssertEqual("dwindle ★★☆", lines[0]);
     AssertEqual("逐渐减少、缩小", lines[1]);
-    AssertEqual("词族/词形  dwindled · dwindling", lines[2]);
-    AssertEqual("用法/语境  their savings dwindled away · our dwindling natural resources", lines[3]);
+    AssertEqual("整句句意对齐：未用于筛选", lines[2]);
+    AssertEqual("词族/词形  dwindled · dwindling", lines[3]);
+    AssertEqual("用法/语境  their savings dwindled away · our dwindling natural resources", lines[4]);
+
+    var alignedLines = LookupCardTextFormatter.VisibleLines(presentation with { IsContextAligned = true });
+    AssertEqual("整句句意对齐：已用于筛选", alignedLines[2]);
 }
 
 static void WordCardRegressionsRejectFalseFamilies()

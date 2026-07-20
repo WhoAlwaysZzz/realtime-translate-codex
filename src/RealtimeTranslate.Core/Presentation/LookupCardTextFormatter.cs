@@ -22,12 +22,16 @@ public static class LookupCardTextFormatter
     public static string Usage(LookupPresentation presentation) =>
         string.IsNullOrWhiteSpace(presentation.ContextHint) ? string.Empty : $"用法/语境  {presentation.ContextHint}";
 
+    public static string ContextAlignment(LookupPresentation presentation) =>
+        presentation.IsContextAligned ? "整句句意对齐：已用于筛选" : "整句句意对齐：未用于筛选";
+
     public static IReadOnlyList<string> VisibleLines(LookupPresentation presentation)
     {
         return new[]
         {
             $"{presentation.Title} {Frequency(presentation.FrequencyBand)}".Trim(),
             presentation.PrimaryDefinition,
+            presentation.IsError ? string.Empty : ContextAlignment(presentation),
             Breakdown(presentation),
             Family(presentation),
             Usage(presentation),

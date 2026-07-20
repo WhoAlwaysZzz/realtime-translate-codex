@@ -47,7 +47,8 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
                 ordered[0].Sense.ShortDefinition,
                 ordered.Select(item => Format(item.Sense)).ToArray(),
                 true,
-                ordered[0].Sense);
+                ordered[0].Sense,
+                WasContextAligned: true);
         }
 
         var flat = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));

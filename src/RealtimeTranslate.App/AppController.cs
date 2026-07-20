@@ -423,7 +423,8 @@ public sealed class AppController : IDisposable
                 WordBreakdown: insight.Breakdown,
                 WordFamily: insight.Family,
                 ContextHint: usageHint,
-                FrequencyBand: lookup.FrequencyBand);
+                FrequencyBand: lookup.FrequencyBand,
+                IsContextAligned: ranking.WasContextAligned);
 
             SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates));
             ShowAndRemember(presentation);
@@ -492,7 +493,8 @@ public sealed class AppController : IDisposable
             WordBreakdown: insight.Breakdown,
             WordFamily: insight.Family,
             ContextHint: usageHint,
-            FrequencyBand: lookup.FrequencyBand));
+            FrequencyBand: lookup.FrequencyBand,
+            IsContextAligned: ranking.WasContextAligned));
     }
 
     private void ShowAndRemember(LookupPresentation presentation)
