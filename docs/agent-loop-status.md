@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 00:10:00
+Updated: 2026-08-30 00:23:00
 
-- Run: fixed desktop-host startup isolation and bounded right-drag geometry
-- Stage: archive replay is repeatable; live desktop selection now produces a complete lookup record
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors. `Verify-DesktopSelection.ps1 -TimeoutSeconds 30 -SettleMilliseconds 12000` appended a record with selection `1424x475`, an existing screenshot, OCR text `converting`, and a non-error definition.
-- Fix: desktop test host skips global hotkey/tray registration so existing app instances cannot abort startup; verifier injects an explicit `SendInput` move and a non-zero vertical drag, matching the app's non-empty selection requirement.
-- Remaining blocker: broader OCR accuracy and real game-window coverage remain to be assessed against labeled archive samples; this run proves only the deterministic desktop host path.
-- Next: expand live verification to a small labeled screenshot corpus and compare OCR/card quality, while preserving the user-acceptance gate.
+- Run: corrected replay quality accounting and reran a stratified archive sample
+- Stage: archive replay is repeatable; live desktop selection produces a complete lookup record
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors. A 40-sample stratified replay completed with 0 timeouts/failures, 37/40 non-empty OCR, and 40/40 records; three historical empty selections were classified as low-information, likely-terminal, or likely-HUD. A 6-sample check after the verifier fix reports 5/5 OCR-backed dictionary hits and correctly reports the empty sample as `FoundDefinition=False`.
+- Fix: `Verify-ReplayCorpus.ps1` now requires non-empty replay OCR before counting a usable definition and reuses the same predicate for `no definition` diagnostics, preventing empty/error cards from inflating lookup success.
+- Remaining blocker: OCR accuracy and contextual sense quality are not yet measured against human-labeled expected text; current archive evidence is self-referential (historical OCR versus replay OCR).
+- Next: add a small labeled expected-word manifest for representative screenshots, then report normalized OCR and Top-1 sense accuracy without changing the user-acceptance gate.

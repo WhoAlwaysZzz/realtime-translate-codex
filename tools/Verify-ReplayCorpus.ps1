@@ -114,6 +114,10 @@ $results = @(foreach ($index in $indices) {
     }
     $sourceHasOcr = ![string]::IsNullOrWhiteSpace($sourceText)
     $replayHasOcr = ![string]::IsNullOrWhiteSpace($replayedText)
+    $definitionValues = @($newRecord.definitions | ForEach-Object { [string]$_ })
+    $hasUsableDefinition = $replayHasOcr -and @($definitionValues | Where-Object {
+        $_ -and $_ -notmatch '未识别|未找到|失败'
+    }).Count -gt 0
     [pscustomobject]@{
         Index = $index
         SourceWord = $sourceText
@@ -127,8 +131,8 @@ $results = @(foreach ($index in $indices) {
         EdgeDensity = $quality.EdgeDensity
         GreenRatio = $quality.GreenRatio
         ContentClass = $quality.ContentClass
-        FoundDefinition = if ($newRecord) { @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -gt 0 } else { $false }
-        Diagnostic = if ($replayTimedOut) { 'replay timeout' } elseif (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'invalid') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'tiny') { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'low-information') { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -in @('likely-terminal','likely-hud')) { "historical empty: $($quality.ContentClass)" } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$sourceHasOcr -and $replayHasOcr) { 'OCR recovery' } elseif (!$newRecord.definitions -or @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -eq 0) { 'no definition' } else { 'ok' }
+        FoundDefinition = $hasUsableDefinition
+        Diagnostic = if ($replayTimedOut) { 'replay timeout' } elseif (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'invalid') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'tiny') { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'low-information') { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -in @('likely-terminal','likely-hud')) { "historical empty: $($quality.ContentClass)" } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$hasUsableDefinition) { 'no definition' } else { 'ok' }
     }
 })
 
