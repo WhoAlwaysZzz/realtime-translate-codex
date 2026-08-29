@@ -116,12 +116,17 @@ public sealed class AppController : IDisposable
         _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
-    public void Start()
+    public void Start(bool enableSystemIntegration = true)
     {
         Directory.CreateDirectory(_settings.ArchiveRoot);
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "screenshots"));
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "records"));
         _preferences = _preferencesStore.Load();
+        if (!enableSystemIntegration)
+        {
+            return;
+        }
+
         RegisterCommandHotkeys();
         _rightDragSelectionService.Start();
         UpdateTray();

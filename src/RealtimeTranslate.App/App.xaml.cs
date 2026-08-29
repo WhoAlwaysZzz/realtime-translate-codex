@@ -57,9 +57,10 @@ public partial class App : System.Windows.Application
                 new JsonlTextExplanationRecorder(settings.ArchiveRoot),
                 new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")),
                 new UserPreferencesStore(Path.Combine(settings.ArchiveRoot, "settings.json")));
-            _controller.Start();
+            var replayMode = e.Args.Length >= 2 && string.Equals(e.Args[0], "--replay", StringComparison.OrdinalIgnoreCase);
+            _controller.Start(!replayMode);
 
-            if (e.Args.Length >= 2 && string.Equals(e.Args[0], "--replay", StringComparison.OrdinalIgnoreCase))
+            if (replayMode)
             {
                 var recordsPath = e.Args[1];
                 var record = File.ReadLines(recordsPath)
