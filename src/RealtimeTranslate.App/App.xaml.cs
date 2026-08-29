@@ -63,9 +63,10 @@ public partial class App : System.Windows.Application
             if (replayMode)
             {
                 var recordsPath = e.Args[1];
-                var record = File.ReadLines(recordsPath)
+                var parsedRecords = File.ReadLines(recordsPath)
                     .Select(line => JsonSerializer.Deserialize<LookupRecord>(line, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }))
-                    .FirstOrDefault(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath));
+                    .ToArray();
+                var record = parsedRecords.FirstOrDefault(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath));
                 if (record is null)
                 {
                     throw new InvalidOperationException("No replayable lookup record was found.");
