@@ -1,14 +1,9 @@
-# Agent Loop Status
+﻿# Agent Loop Status
 
-更新时间：2026-08-29
+Updated: 2026-08-29 21:34:10
 
-## 当前状态
-
-- **运行状态**：未在后台运行。循环只会在 Codex 工作回合中执行，不会在回合结束后自行存活。
-- **阶段**：归档回放入口的真实运行验证。
-- **已完成**：历史 PNG 裁剪、生产查词流水线接缝、`--replay` 参数、全局热键隔离。
-- **最近证据**：回放程序能启动，但提示 `No replayable lookup record was found`。
-- **下一动作**：修正 `lookups.jsonl` 的反序列化/筛选，并重新启动回放；成功后记录 OCR 与卡片结果。
-- **停止条件**：至少一条归档记录完整走完 PNG→OCR→查词→卡片，或连续三轮没有新证据。
-
-该文件用于每轮开始和结束时报告状态；它不是后台任务的替代品。
+- Run: single real replay verification after 61 prior loop iterations
+- Stage: blocked at Windows OCR input quality, after PNG crop and production lookup pipeline execution
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` passed with 0 warnings and 0 errors; all 19 existing tests passed. Running the built app with `--replay %LOCALAPPDATA%\\RealtimeTranslateCodex\\records\\lookups.jsonl --index 0` and `--index 1` exited 0 and wrote isolated replay records, proving archived PNG loading, crop, app startup, and `AppController.ReplayAsync` execution. Both records had `recognizedText: ""`, empty `ocrCandidates`, and definition `未识别到单词`; no real card was produced. The first archived screenshot visibly contains a PowerShell/file-manager desktop rather than a clean word crop, so this is currently an input/OCR limitation, not a confirmed dictionary-flow defect.
+- Fix: replay mode now records its result under `%TEMP%\\RealtimeTranslateCodex-replay` instead of suppressing records, keeping user history untouched while making verification observable.
+- Next: obtain or select an archived screenshot whose selection tightly encloses readable English text, then rerun replay and require a non-empty OCR candidate plus a found dictionary result before marking the goal verified.

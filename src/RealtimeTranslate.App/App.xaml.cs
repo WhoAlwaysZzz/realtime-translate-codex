@@ -54,7 +54,9 @@ public partial class App : System.Windows.Application
                 new WpfTextExplanationPresenter(),
                 new OpenAiCompatibleTextExplanationService(new HttpClient(), aiOptions),
                 new JsonRecentLookupStore(Path.Combine(settings.ArchiveRoot, "records", "recent-lookups.json")),
-                replayMode ? new NullLookupRecorder() : new JsonlLookupRecorder(settings.ArchiveRoot),
+                replayMode
+                    ? new JsonlLookupRecorder(Path.Combine(Path.GetTempPath(), "RealtimeTranslateCodex-replay"))
+                    : new JsonlLookupRecorder(settings.ArchiveRoot),
                 new JsonlTextExplanationRecorder(settings.ArchiveRoot),
                 new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")),
                 new UserPreferencesStore(Path.Combine(settings.ArchiveRoot, "settings.json")));
