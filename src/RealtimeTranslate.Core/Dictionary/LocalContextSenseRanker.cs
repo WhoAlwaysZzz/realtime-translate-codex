@@ -78,6 +78,15 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             {
                 score += 4;
             }
+
+            // An adjective used as an attributive/appositive modifier is often
+            // followed by a comma ("the frail, slender girl").  The article
+            // heuristic above must not let the noun sense win this common form.
+            if (sense.PartOfSpeech is "adj" or "a"
+                && Regex.IsMatch(context, $@"\b{Regex.Escape(targetWord)}\b\s*,", RegexOptions.IgnoreCase))
+            {
+                score += 5;
+            }
         }
 
         var definitionTokens = sense.EnglishDefinitions.SelectMany(Tokens).ToHashSet(StringComparer.OrdinalIgnoreCase);

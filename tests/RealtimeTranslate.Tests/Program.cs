@@ -321,6 +321,14 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(tree.WasContextAligned, "tree context should be marked as aligned");
     AssertEqual("树皮", tree.PrimaryDefinition);
 
+    var frailLookup = new DictionaryLookupResult(true, "frail", ["adj. 脆弱的", "n. 灯心草篓"], [
+        new DictionarySense("adj", "脆弱的", ["physically weak"]),
+        new DictionarySense("n", "灯心草篓", ["a basket for holding dried fruit"]),
+    ], 2);
+    var frail = ranker.Rank(frailLookup, "frail", "She looks at the frail, slender girl in front of her.");
+    AssertTrue(frail.IsConfident, "appositive adjective context should be confidently ranked");
+    AssertEqual("脆弱的", frail.PrimaryDefinition);
+
     var unknown = ranker.Rank(lookup, "bark", string.Empty);
     AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
     AssertTrue(!unknown.WasContextAligned, "missing context must not be marked as aligned");
