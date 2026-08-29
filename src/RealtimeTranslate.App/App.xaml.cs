@@ -64,7 +64,7 @@ public partial class App : System.Windows.Application
             {
                 var recordsPath = e.Args[1];
                 var record = File.ReadLines(recordsPath)
-                    .Select(line => JsonSerializer.Deserialize<LookupRecord>(line))
+                    .Select(line => JsonSerializer.Deserialize<LookupRecord>(line, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }))
                     .FirstOrDefault(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath));
                 if (record is null)
                 {
