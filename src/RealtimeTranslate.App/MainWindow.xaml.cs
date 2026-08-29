@@ -56,7 +56,7 @@ public partial class MainWindow : Window
         };
         var context = new TextBlock
         {
-            Text = "to bark",
+            Text = "The dog began to bark",
             FontSize = 36,
             FontWeight = FontWeights.Bold,
             Foreground = WpfBrushes.Black,

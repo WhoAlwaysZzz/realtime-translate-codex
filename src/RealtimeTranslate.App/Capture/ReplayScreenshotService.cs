@@ -28,7 +28,8 @@ public sealed class ReplayScreenshotService
         var bounds = new Rectangle(0, 0, source.Width, source.Height);
         var normalized = NormalizeSelection(selection, bounds);
         var word = CropToPng(source, Clamp(normalized, bounds, CropPaddingPixels, CropPaddingPixels));
-        var context = CropToPng(source, Clamp(normalized, bounds, ContextHorizontalPaddingPixels, ContextVerticalPaddingPixels));
+        var contextRectangle = Clamp(normalized, bounds, ContextHorizontalPaddingPixels, ContextVerticalPaddingPixels);
+        var context = CropContextToPng(source, contextRectangle, normalized);
         return Task.FromResult(new CapturedSelection(selection, screenshotPath, word, context));
     }
 
@@ -54,6 +55,26 @@ public sealed class ReplayScreenshotService
         using var crop = source.Clone(rectangle, PixelFormat.Format32bppArgb);
         using var stream = new MemoryStream();
         crop.Save(stream, ImageFormat.Png);
+        return stream.ToArray();
+    }
+
+    private static byte[] CropContextToPng(Bitmap source, Rectangle contextRectangle, ScreenSelection selection)
+    {
+        using var cropped = source.Clone(contextRectangle, PixelFormat.Format32bppArgb);
+        var selected = new Rectangle(
+            selection.X - contextRectangle.X,
+            selection.Y - contextRectangle.Y,
+            selection.Width,
+            selection.Height);
+        selected.Intersect(new Rectangle(Point.Empty, cropped.Size));
+        if (!selected.IsEmpty)
+        {
+            using var graphics = Graphics.FromImage(cropped);
+            graphics.FillRectangle(Brushes.White, selected);
+        }
+
+        using var stream = new MemoryStream();
+        cropped.Save(stream, ImageFormat.Png);
         return stream.ToArray();
     }
 }

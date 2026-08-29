@@ -48,7 +48,8 @@ public sealed class WindowsScreenshotService : IScreenshotService
         }
 
         var wordCrop = CropToPng(full, ClampSelectionToBounds(selection, bounds, CropPaddingPixels, CropPaddingPixels));
-        var contextCrop = CropToPng(full, ClampSelectionToBounds(selection, bounds, ContextHorizontalPaddingPixels, ContextVerticalPaddingPixels));
+        var contextRectangle = ClampSelectionToBounds(selection, bounds, ContextHorizontalPaddingPixels, ContextVerticalPaddingPixels);
+        var contextCrop = CropContextToPng(full, contextRectangle, selection, bounds);
 
         return Task.FromResult(new CapturedSelection(selection, screenshotPath, wordCrop, contextCrop));
     }
@@ -56,6 +57,26 @@ public sealed class WindowsScreenshotService : IScreenshotService
     private static byte[] CropToPng(Bitmap full, Rectangle rectangle)
     {
         using var cropped = full.Clone(rectangle, PixelFormat.Format32bppArgb);
+        using var stream = new MemoryStream();
+        cropped.Save(stream, ImageFormat.Png);
+        return stream.ToArray();
+    }
+
+    private static byte[] CropContextToPng(Bitmap full, Rectangle contextRectangle, ScreenSelection selection, Rectangle bounds)
+    {
+        using var cropped = full.Clone(contextRectangle, PixelFormat.Format32bppArgb);
+        var selected = new Rectangle(
+            selection.X - bounds.Left - contextRectangle.X,
+            selection.Y - bounds.Top - contextRectangle.Y,
+            selection.Width,
+            selection.Height);
+        selected.Intersect(new Rectangle(Point.Empty, cropped.Size));
+        if (!selected.IsEmpty)
+        {
+            using var graphics = Graphics.FromImage(cropped);
+            graphics.FillRectangle(Brushes.White, selected);
+        }
+
         using var stream = new MemoryStream();
         cropped.Save(stream, ImageFormat.Png);
         return stream.ToArray();
