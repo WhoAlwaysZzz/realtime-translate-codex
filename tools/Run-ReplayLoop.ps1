@@ -11,10 +11,10 @@ $status = Join-Path $repo 'docs\agent-loop-status.md'
 
 for ($i = 1; $i -le $Iterations; $i++) {
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    "# Agent Loop Status`r`n`r`n更新时间：$stamp`r`n`r`n## 当前状态`r`n`r`n- **运行状态**：第 $i/$Iterations 轮回放中`r`n- **阶段**：历史截图 → OCR → 查词 → 卡片`r`n- **记录源**：$records`r`n- **下一动作**：等待本轮回放结束并启动下一轮`r`n" | Set-Content -Encoding utf8 $status
+    @("# Agent Loop Status", "", "Updated: $stamp", "", "- Run: iteration $i of $Iterations", "- Stage: archive replay (PNG -> OCR -> lookup -> card)", "- Records: $records", "- Next: wait for replay and start next iteration") | Set-Content -Encoding utf8 $status
     Start-Process -FilePath $exe -ArgumentList @('--replay', $records) -Wait
     Start-Sleep -Seconds $PauseSeconds
 }
 
 $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-"# Agent Loop Status`r`n`r`n更新时间：$stamp`r`n`r`n## 当前状态`r`n`r`n- **运行状态**：已完成 $Iterations 轮`r`n- **阶段**：等待结果审查`r`n- **下一动作**：读取回放输出并分类问题`r`n" | Set-Content -Encoding utf8 $status
+@("# Agent Loop Status", "", "Updated: $stamp", "", "- Run: completed $Iterations iterations", "- Stage: awaiting result review", "- Next: classify replay output") | Set-Content -Encoding utf8 $status
