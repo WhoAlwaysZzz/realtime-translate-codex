@@ -77,6 +77,7 @@ public partial class App : System.Windows.Application
         }
         catch (Exception ex)
         {
+            try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "RealtimeTranslateCodex-startup-error.txt"), ex.ToString()); } catch { }
             System.Windows.MessageBox.Show(ex.Message, "Realtime Translate Codex failed to start", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
