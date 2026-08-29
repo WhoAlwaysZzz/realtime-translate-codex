@@ -24,7 +24,7 @@ public partial class MainWindow : Window
             Title = "Realtime Translate Codex · Desktop Test Host";
             Content = new TextBlock
             {
-                Text = "Desktop verification host\nRight-drag across the sample words to exercise OCR and lookup.",
+                Text = "Desktop verification host\nRIGHT DRAG across: shelter   companion   discover\n to exercise OCR and lookup.",
                 FontSize = 28,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(48),
