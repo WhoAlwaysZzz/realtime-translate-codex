@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 07:32:00
+Updated: 2026-08-30 08:05:00
 
-- Run: added the human-verified ambiguous noun/verb sample `dome` from the stratified archive replay.
-- Stage: archive replay and real desktop right-drag are executable; the manifest now covers fifteen labeled records across nouns, verbs, adjectives, and game/UI text.
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors, and the executable suite passed all 19 checks. The labeled replay across indices `100,200,500,600,700,187,281,563,657,751,799,845,939,1090,1127` completed with no timeout/process failure: `ocr_exact=15/15`, `dictionary_found=15/15`, `context_available=15/15`, and `context_top1_sense=15/15` (100%). Full per-record evidence is archived in `artifacts/labeled-context-20260830-r6.json`. A fresh interactive right-drag also appended a valid record (`bark`, context `The dog began to bark`, screenshot present, definition found). A new 30-point stratified replay over the archive completed 29 records before the 180-second run limit: `ocr_nonempty=27/29`, `dictionary_found=26/29`, `replay_failures=1` (one timeout). The non-successful records were development/UI or low-information screenshots, confirming archive pollution rather than a demonstrated game-scene regression.
-- Fixes: `tests/Data/replay-expected.json` now records `dome` (expected noun sense `圆顶`). The stratified replay also found `shelter` without recoverable context, so it remains unlabeled. No OCR or UI behavior was changed.
-- Remaining blocker: broad replay is contaminated by historical development/UI screenshots and is too slow to finish 30 samples within 180 seconds; only 15 records have human-reviewed sense labels. Changing ranking heuristics now would risk optimizing for OCR noise.
-- Next: add a deterministic replay-corpus filter/manifest for game-scene candidates (excluding obvious editor/terminal and low-information captures), then rerun a bounded stratified sample and label only unambiguous contexts while tracking false-positive and abstention rates.
+- Run: added a deterministic candidate manifest and wired replay sampling to use it.
+- Stage: archive replay and real desktop right-drag are executable; the candidate pool now contains fourteen reviewed game-scene indices and excludes the known terminal/editor capture at index `100`.
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable suite passed all 19 checks. A real bounded replay using `-CandidateManifestPath tests/Data/replay-candidates.json -Stratified -SampleCount 5` completed indices `187,281,600,751,939` with `ocr_nonempty=5/5`, `dictionary_found=5/5`, `replay_failures=0`, `ocr_exact=5/5`, and `context_top1_sense=5/5`; evidence is in `artifacts/candidate-filter-20260830.json`.
+- Fixes: `tools/Verify-ReplayCorpus.ps1` accepts an optional JSON candidate manifest (array or `{ "indices": [...] }`), validates indices, samples only that pool for stratified runs, and records pool metadata in summary JSON. No OCR or UI behavior changed.
+- Remaining blocker: only fourteen candidate indices are curated and fifteen sense labels exist; broader game-scene coverage and abstention/false-positive measurement are still missing.
+- Next: expand the candidate manifest from additional real game captures, then run a larger bounded replay and label ambiguous contexts without changing ranking heuristics prematurely.

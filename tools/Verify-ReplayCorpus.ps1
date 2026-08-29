@@ -7,6 +7,7 @@ param(
     [int]$MaxRunSeconds = 0,
     [string]$SummaryPath,
     [string]$ExpectedManifestPath,
+    [string]$CandidateManifestPath,
     [int[]]$Indices,
     [switch]$Stratified
 )
@@ -35,19 +36,35 @@ if ($ExpectedManifestPath -and (Test-Path $ExpectedManifestPath)) {
         $expectedByIndex[[int]$entry.index] = $entry
     }
 }
+$candidateIndices = $null
+if ($CandidateManifestPath) {
+    if (!(Test-Path $CandidateManifestPath)) { throw "Candidate manifest not found: $CandidateManifestPath" }
+    $candidateDocument = Get-Content -Raw -Encoding utf8 $CandidateManifestPath | ConvertFrom-Json
+    $candidateValues = if ($candidateDocument -is [System.Array]) { @($candidateDocument) } elseif ($candidateDocument.indices) { @($candidateDocument.indices) } else { @() }
+    if ($candidateValues.Count -eq 0) { throw "Candidate manifest must contain a non-empty indices array: $CandidateManifestPath" }
+    $candidateIndices = @($candidateValues | ForEach-Object {
+        $parsed = 0
+        if (![int]::TryParse([string]$_, [ref]$parsed) -or $parsed -lt 0) { throw "Candidate manifest indices must be non-negative integers: $CandidateManifestPath" }
+        $parsed
+    } | Select-Object -Unique)
+}
 
 New-Item -ItemType Directory -Force -Path (Split-Path $outputRecords) | Out-Null
 
 $archive = @(Get-Content -Encoding utf8 $records | ForEach-Object {
     try { $_ | ConvertFrom-Json } catch { $null }
 } | Where-Object { $_ -and $_.screenshotPath -and $_.selection })
-$available = 0..($archive.Count - 1) | Where-Object { $_ -ge $StartIndex }
+$available = if ($candidateIndices) {
+    @($candidateIndices | Where-Object { $_ -lt $archive.Count -and $_ -ge $StartIndex })
+} else {
+    @(0..($archive.Count - 1) | Where-Object { $_ -ge $StartIndex })
+}
 if ($Indices) {
     $indices = @($Indices | Select-Object -Unique)
     $invalidIndices = @($indices | Where-Object { $_ -lt 0 -or $_ -ge $archive.Count })
     if ($invalidIndices.Count -gt 0) { throw "Replay indices out of range: $($invalidIndices -join ', ')" }
 } elseif ($Stratified) {
-    # Deterministic evenly spaced picks cover the full archive without relying on random state.
+    # Deterministic evenly spaced picks cover the selected pool without relying on random state.
     $indices = @(0..([Math]::Min($SampleCount, $available.Count) - 1) | ForEach-Object {
         $available[[Math]::Floor($_ * $available.Count / [double][Math]::Min($SampleCount, $available.Count))]
     } | Select-Object -Unique)
@@ -191,6 +208,8 @@ if ($SummaryPath) {
         RequestedSamples = $SampleCount
         ActualSamples = $results.Count
         MaxRunSeconds = $MaxRunSeconds
+        CandidateManifestPath = $CandidateManifestPath
+        CandidatePoolCount = $available.Count
         RunTimeLimitReached = $runTimeLimitReached
         OcrNonEmpty = $ocrSuccess
         DictionaryFound = $lookupSuccess
