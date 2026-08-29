@@ -9,6 +9,7 @@
   { "index": 563, "expectedText": "staunch", "expectedSense": "忠实" },
   { "index": 657, "expectedText": "neglected", "expectedSense": "被忽视" },
   { "index": 751, "expectedText": "fortress", "expectedSense": "城堡" },
+  { "index": 845, "expectedText": "exquisite", "expectedSense": "精致" },
   { "index": 1090, "expectedText": "concealed", "expectedSense": "隐匿" },
   { "index": 1127, "expectedText": "bark", "expectedSense": "吠" }
 ]
