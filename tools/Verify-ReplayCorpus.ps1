@@ -3,6 +3,7 @@ param(
     [int]$StartIndex = 0,
     [int]$DelayMilliseconds = 250,
     [int]$ReplaySettleMilliseconds = 1000,
+    [int]$ReplayTimeoutSeconds = 30,
     [string]$SummaryPath,
     [switch]$Stratified
 )
@@ -18,6 +19,7 @@ $outputRecords = Join-Path $outputRoot 'records\lookups.jsonl'
 if (!(Test-Path $exe)) { throw "Built app not found: $exe" }
 if (!(Test-Path $records)) { throw "Lookup archive not found: $records" }
 if ($SampleCount -lt 1) { throw 'SampleCount must be positive.' }
+if ($ReplayTimeoutSeconds -lt 1) { throw 'ReplayTimeoutSeconds must be positive.' }
 
 New-Item -ItemType Directory -Force -Path (Split-Path $outputRecords) | Out-Null
 
@@ -35,9 +37,14 @@ if ($Stratified) {
 }
 if (@($indices).Count -eq 0) { throw "No replayable records at or after index $StartIndex." }
 
-$results = foreach ($index in $indices) {
+$results = @(foreach ($index in $indices) {
     $before = if (Test-Path $outputRecords) { (Get-Content -Encoding utf8 $outputRecords).Count } else { 0 }
-    $process = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index, '--replay-delay-ms', $ReplaySettleMilliseconds) -Wait -PassThru
+    $process = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index, '--replay-delay-ms', $ReplaySettleMilliseconds) -PassThru
+    $replayTimedOut = -not $process.WaitForExit($ReplayTimeoutSeconds * 1000)
+    if ($replayTimedOut) {
+        Stop-Process -Id $process.Id -Force
+        $process.WaitForExit()
+    }
     Start-Sleep -Milliseconds $DelayMilliseconds
     $lines = if (Test-Path $outputRecords) { @(Get-Content -Encoding utf8 $outputRecords) } else { @() }
     $newRecord = if ($lines.Count -gt $before) { $lines[$before] | ConvertFrom-Json } else { $null }
@@ -79,23 +86,26 @@ $results = foreach ($index in $indices) {
     [pscustomobject]@{
         Index = $index
         SourceWord = $sourceText
-        ExitCode = $process.ExitCode
+        ExitCode = if ($replayTimedOut) { $null } else { $process.ExitCode }
+        ReplayTimedOut = $replayTimedOut
         RecognizedText = $replayedText
         Screenshot = $quality.Screenshot
         SelectionQuality = $quality.Selection
         CropPixels = $quality.CropPixels
         ContrastRange = $quality.ContrastRange
         FoundDefinition = if ($newRecord) { @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -gt 0 } else { $false }
-        Diagnostic = if (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.Selection -ne 'in-bounds') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.CropPixels -lt 400) { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContrastRange -lt 20) { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$sourceHasOcr -and $replayHasOcr) { 'OCR recovery' } elseif (!$newRecord.definitions -or @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -eq 0) { 'no definition' } else { 'ok' }
+        Diagnostic = if ($replayTimedOut) { 'replay timeout' } elseif (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.Selection -ne 'in-bounds') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.CropPixels -lt 400) { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContrastRange -lt 20) { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$sourceHasOcr -and $replayHasOcr) { 'OCR recovery' } elseif (!$newRecord.definitions -or @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -eq 0) { 'no definition' } else { 'ok' }
     }
-}
+})
 
 $results | Format-Table -AutoSize
 $ocrSuccess = @($results | Where-Object { $_.RecognizedText }).Count
 $lookupSuccess = @($results | Where-Object { $_.FoundDefinition }).Count
 $regressions = @($results | Where-Object Diagnostic -eq 'OCR regression').Count
 $recoveries = @($results | Where-Object Diagnostic -eq 'OCR recovery').Count
-"Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_failures=$(@($results | Where-Object { $_.ExitCode -ne 0 }).Count)"
+$replayTimeouts = @($results | Where-Object ReplayTimedOut).Count
+$replayFailures = @($results | Where-Object { $_.ReplayTimedOut -or $_.ExitCode -ne 0 }).Count
+"Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_timeouts=$replayTimeouts; replay_failures=$replayFailures"
 
 if ($SummaryPath) {
     $summary = [pscustomobject]@{
@@ -107,7 +117,8 @@ if ($SummaryPath) {
         DictionaryFound = $lookupSuccess
         OcrRegressions = $regressions
         OcrRecoveries = $recoveries
-        ReplayFailures = @($results | Where-Object { $_.ExitCode -ne 0 }).Count
+        ReplayTimeouts = $replayTimeouts
+        ReplayFailures = $replayFailures
         Diagnostics = @($results | Group-Object Diagnostic | ForEach-Object {
             [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
         })
