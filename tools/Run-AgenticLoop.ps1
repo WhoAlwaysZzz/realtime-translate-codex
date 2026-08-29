@@ -5,7 +5,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 $log = Join-Path $repo 'docs\agentic-loop.log'
 $status = Join-Path $repo 'docs\agentic-loop-status.md'
 $pidPath = Join-Path $repo 'docs\agentic-loop.pid'
-$done = Join-Path $repo 'docs\agent-loop.done'
+$done = Join-Path $repo 'docs\agent-loop.accepted'
 
 function Repair-Mojibake([string]$text) {
     if ([string]::IsNullOrEmpty($text)) { return $text }
@@ -23,7 +23,7 @@ while (-not (Test-Path $done)) {
     @("# Agentic Loop Status", "", "Updated: $stamp", "", "- Run: agent iteration $iteration", "- Stage: agent is inspecting, implementing, testing, and reflecting", "- Goal: make archived screenshot replay complete the production lookup flow", "- Next: inspect agent log for its decision") | Set-Content -Encoding utf8 $status
     Add-Content -Encoding utf8 $log "[$stamp] START agent iteration=$iteration"
     $prompt = @"
-You are the autonomous engineering agent for this repository. Continue the current goal: make archived screenshot replay execute and validate the real production lookup flow. Read docs/agent-loop-status.md, docs/agent-loop.log, and the code before acting. Inspect the latest evidence, identify the single highest-value blocker, implement the smallest reversible fix, build and run a real verification. Commit coherent changes. Do not ask the user for routine decisions. Update docs/agent-loop-status.md with facts, evidence, and next action. If the goal is genuinely verified, create docs/agent-loop.done. If not, leave the repository ready for the next iteration. Do not modify unrelated user changes.
+You are the autonomous engineering agent for this repository. Continue the full product goal in docs/agentic-loop-goal.md, not merely one replay milestone. Read the status, logs, goal, and code before acting. Inspect the latest evidence, identify the single highest-value remaining blocker, implement the smallest reversible fix, build and run a real verification, and commit coherent changes. Do not ask the user for routine decisions. Update docs/agent-loop-status.md with facts, evidence, and next action. Never create or modify docs/agent-loop.accepted; only the user can mark final acceptance. Do not modify unrelated user changes.
 "@
     $previousErrorAction = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
