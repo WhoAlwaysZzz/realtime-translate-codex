@@ -63,9 +63,12 @@ public partial class App : System.Windows.Application
             if (replayMode)
             {
                 var recordsPath = e.Args[1];
+                var replayIndex = e.Args.Length >= 4 && int.TryParse(e.Args[3], out var parsedIndex) ? parsedIndex : 0;
                 var record = File.ReadLines(recordsPath)
                     .Select(ParseReplayRecord)
-                    .FirstOrDefault(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath));
+                    .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath))
+                    .Skip(replayIndex)
+                    .FirstOrDefault();
                 if (record is null)
                 {
                     throw new InvalidOperationException("No replayable lookup record was found.");
