@@ -20,7 +20,7 @@ $iteration = 0
 while (-not (Test-Path $done)) {
     $iteration++
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    @("# Agentic Loop Status", "", "Updated: $stamp", "", "- Run: agent iteration $iteration", "- Stage: agent is inspecting, implementing, testing, and reflecting", "- Goal: make archived screenshot replay complete the production lookup flow", "- Next: inspect agent log for its decision") | Set-Content -Encoding utf8 $status
+    @("# Agentic Loop Status", "", "Updated: $stamp", "", "- Run: agent iteration $iteration", "- Stage: agent is inspecting, implementing, testing, and reflecting", "- Goal: deliver a reliable English game-reading assistant", "- Completion: user acceptance marker only", "- Next: inspect agent log for its decision") | Set-Content -Encoding utf8 $status
     Add-Content -Encoding utf8 $log "[$stamp] START agent iteration=$iteration"
     $prompt = @"
 You are the autonomous engineering agent for this repository. Continue the full product goal in docs/agentic-loop-goal.md, not merely one replay milestone. Read the status, logs, goal, and code before acting. Inspect the latest evidence, identify the single highest-value remaining blocker, implement the smallest reversible fix, build and run a real verification, and commit coherent changes. Do not ask the user for routine decisions. Update docs/agent-loop-status.md with facts, evidence, and next action. Never create or modify docs/agent-loop.accepted; only the user can mark final acceptance. Do not modify unrelated user changes.
