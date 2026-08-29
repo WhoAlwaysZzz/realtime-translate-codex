@@ -50,7 +50,7 @@ $results = @(foreach ($index in $indices) {
     $newRecord = if ($lines.Count -gt $before) { $lines[$before] | ConvertFrom-Json } else { $null }
     $sourceText = [string]$archive[$index].recognizedText
     $replayedText = if ($newRecord) { [string]$newRecord.recognizedText } else { '' }
-    $quality = [pscustomobject]@{ Screenshot = 'missing'; Selection = 'unknown'; CropPixels = 0; ContrastRange = 0 }
+    $quality = [pscustomobject]@{ Screenshot = 'missing'; Selection = 'unknown'; CropPixels = 0; ContrastRange = 0; EdgeDensity = 0; GreenRatio = 0; ContentClass = 'unknown' }
     $screenshotPath = [string]$archive[$index].screenshotPath
     if (Test-Path $screenshotPath) {
         try {
@@ -62,24 +62,39 @@ $results = @(foreach ($index in $indices) {
                 $valid = [int]$selection.x -ge 0 -and [int]$selection.y -ge 0 -and [int]$selection.width -gt 0 -and [int]$selection.height -gt 0 -and $selectionRight -le $bitmap.Width -and $selectionBottom -le $bitmap.Height
                 $minLuminance = 255.0
                 $maxLuminance = 0.0
+                $edgeTransitions = 0
+                $greenPixels = 0
+                $sampledPixels = 0
                 if ($valid) {
                     for ($y = [int]$selection.y; $y -lt $selectionBottom; $y++) {
+                        $previousLuminance = $null
                         for ($x = [int]$selection.x; $x -lt $selectionRight; $x++) {
                             $pixel = $bitmap.GetPixel($x, $y)
                             $luminance = $pixel.R * 0.299 + $pixel.G * 0.587 + $pixel.B * 0.114
                             $minLuminance = [Math]::Min($minLuminance, $luminance)
                             $maxLuminance = [Math]::Max($maxLuminance, $luminance)
+                            if ($null -ne $previousLuminance -and [Math]::Abs($luminance - $previousLuminance) -ge 35) { $edgeTransitions++ }
+                            if ($pixel.G -gt ($pixel.R * 1.2) -and $pixel.G -gt ($pixel.B * 1.1)) { $greenPixels++ }
+                            $sampledPixels++
+                            $previousLuminance = $luminance
                         }
                     }
                 }
+                $edgeDensity = if ($sampledPixels -gt 0) { $edgeTransitions / [double]$sampledPixels } else { 0 }
+                $greenRatio = if ($sampledPixels -gt 0) { $greenPixels / [double]$sampledPixels } else { 0 }
+                $contrast = $maxLuminance - $minLuminance
+                $contentClass = if (!$valid) { 'invalid' } elseif ($selection.width * $selection.height -lt 400) { 'tiny' } elseif ($contrast -lt 20) { 'low-information' } elseif ($greenRatio -ge 0.12 -and $contrast -ge 60) { 'likely-terminal' } elseif ($edgeDensity -ge 0.08 -and $contrast -ge 40) { 'text-like' } elseif ($edgeDensity -lt 0.03 -and $contrast -ge 50) { 'likely-hud' } else { 'mixed-ui' }
                 $quality = [pscustomobject]@{
                     Screenshot = "$($bitmap.Width)x$($bitmap.Height)"
                     Selection = if ($valid) { 'in-bounds' } else { 'out-of-bounds' }
                     CropPixels = [int]$selection.width * [int]$selection.height
-                    ContrastRange = [int][Math]::Round($maxLuminance - $minLuminance)
+                    ContrastRange = [int][Math]::Round($contrast)
+                    EdgeDensity = [Math]::Round($edgeDensity, 4)
+                    GreenRatio = [Math]::Round($greenRatio, 4)
+                    ContentClass = $contentClass
                 }
             } finally { $bitmap.Dispose() }
-        } catch { $quality = [pscustomobject]@{ Screenshot = 'unreadable'; Selection = 'unknown'; CropPixels = 0; ContrastRange = 0 } }
+        } catch { $quality = [pscustomobject]@{ Screenshot = 'unreadable'; Selection = 'unknown'; CropPixels = 0; ContrastRange = 0; EdgeDensity = 0; GreenRatio = 0; ContentClass = 'unknown' } }
     }
     $sourceHasOcr = ![string]::IsNullOrWhiteSpace($sourceText)
     $replayHasOcr = ![string]::IsNullOrWhiteSpace($replayedText)
@@ -93,8 +108,11 @@ $results = @(foreach ($index in $indices) {
         SelectionQuality = $quality.Selection
         CropPixels = $quality.CropPixels
         ContrastRange = $quality.ContrastRange
+        EdgeDensity = $quality.EdgeDensity
+        GreenRatio = $quality.GreenRatio
+        ContentClass = $quality.ContentClass
         FoundDefinition = if ($newRecord) { @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -gt 0 } else { $false }
-        Diagnostic = if ($replayTimedOut) { 'replay timeout' } elseif (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.Selection -ne 'in-bounds') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.CropPixels -lt 400) { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContrastRange -lt 20) { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$sourceHasOcr -and $replayHasOcr) { 'OCR recovery' } elseif (!$newRecord.definitions -or @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -eq 0) { 'no definition' } else { 'ok' }
+        Diagnostic = if ($replayTimedOut) { 'replay timeout' } elseif (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'invalid') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'tiny') { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'low-information') { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -in @('likely-terminal','likely-hud')) { "historical empty: $($quality.ContentClass)" } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$sourceHasOcr -and $replayHasOcr) { 'OCR recovery' } elseif (!$newRecord.definitions -or @($newRecord.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -eq 0) { 'no definition' } else { 'ok' }
     }
 })
 
@@ -122,7 +140,7 @@ if ($SummaryPath) {
         Diagnostics = @($results | Group-Object Diagnostic | ForEach-Object {
             [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
         })
-        InputQuality = @($results | Group-Object SelectionQuality | ForEach-Object {
+        InputQuality = @($results | Group-Object ContentClass | ForEach-Object {
             [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
         })
         Results = @($results)
