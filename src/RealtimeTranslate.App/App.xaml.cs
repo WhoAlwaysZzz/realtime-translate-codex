@@ -63,10 +63,9 @@ public partial class App : System.Windows.Application
             if (replayMode)
             {
                 var recordsPath = e.Args[1];
-                var parsedRecords = File.ReadLines(recordsPath)
-                    .Select(line => JsonSerializer.Deserialize<LookupRecord>(line, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }))
-                    .ToArray();
-                var record = parsedRecords.FirstOrDefault(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath));
+                var record = File.ReadLines(recordsPath)
+                    .Select(ParseReplayRecord)
+                    .FirstOrDefault(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath));
                 if (record is null)
                 {
                     throw new InvalidOperationException("No replayable lookup record was found.");
@@ -82,6 +81,23 @@ public partial class App : System.Windows.Application
             System.Windows.MessageBox.Show(ex.Message, "Realtime Translate Codex failed to start", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    private static LookupRecord? ParseReplayRecord(string line)
+    {
+        using var json = JsonDocument.Parse(line);
+        var root = json.RootElement;
+        if (!root.TryGetProperty("screenshotPath", out var path) || string.IsNullOrWhiteSpace(path.GetString())) return null;
+        var s = root.GetProperty("selection");
+        return new LookupRecord(
+            root.GetProperty("occurredAt").GetDateTimeOffset(),
+            root.TryGetProperty("recognizedText", out var recognized) ? recognized.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("displayWord", out var display) ? display.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("lemma", out var lemma) ? lemma.GetString() ?? string.Empty : string.Empty,
+            root.TryGetProperty("definitions", out var defs) ? defs.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray() : [],
+            new ScreenSelection(s.GetProperty("x").GetInt32(), s.GetProperty("y").GetInt32(), s.GetProperty("width").GetInt32(), s.GetProperty("height").GetInt32()),
+            path.GetString()!,
+            []);
     }
 
     protected override void OnExit(ExitEventArgs e)
