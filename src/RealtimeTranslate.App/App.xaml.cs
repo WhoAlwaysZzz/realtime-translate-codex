@@ -1,5 +1,6 @@
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
 using RealtimeTranslate.App.Capture;
 using RealtimeTranslate.App.Ocr;
@@ -13,6 +14,7 @@ using RealtimeTranslate.Core.Normalization;
 using RealtimeTranslate.Core.Ocr;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Stats;
+using RealtimeTranslate.Core.Models;
 
 namespace RealtimeTranslate.App;
 
@@ -20,7 +22,7 @@ public partial class App : System.Windows.Application
 {
     private AppController? _controller;
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
@@ -56,6 +58,21 @@ public partial class App : System.Windows.Application
                 new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")),
                 new UserPreferencesStore(Path.Combine(settings.ArchiveRoot, "settings.json")));
             _controller.Start();
+
+            if (e.Args.Length >= 2 && string.Equals(e.Args[0], "--replay", StringComparison.OrdinalIgnoreCase))
+            {
+                var recordsPath = e.Args[1];
+                var record = File.ReadLines(recordsPath)
+                    .Select(line => JsonSerializer.Deserialize<LookupRecord>(line))
+                    .FirstOrDefault(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath));
+                if (record is null)
+                {
+                    throw new InvalidOperationException("No replayable lookup record was found.");
+                }
+
+                var capture = await new ReplayScreenshotService().CaptureAsync(record.ScreenshotPath, record.Selection);
+                await _controller.ReplayAsync(capture);
+            }
         }
         catch (Exception ex)
         {
