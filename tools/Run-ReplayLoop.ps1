@@ -1,7 +1,4 @@
-param(
-    [int]$Iterations = 10,
-    [int]$PauseSeconds = 2
-)
+param([int]$PauseSeconds = 2)
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -13,10 +10,11 @@ $logPath = Join-Path $repo 'docs\agent-loop.log'
 Set-Content -Encoding ascii $pidPath $PID
 Add-Content -Encoding utf8 $logPath "[$(Get-Date -Format s)] runner started pid=$PID iterations=$Iterations"
 
-for ($i = 1; $i -le $Iterations; $i++) {
+for ($i = 1; ; $i++) {
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    @("# Agent Loop Status", "", "Updated: $stamp", "", "- Run: iteration $i of $Iterations", "- Stage: archive replay (PNG -> OCR -> lookup -> card)", "- Records: $records", "- Next: wait for replay and start next iteration") | Set-Content -Encoding utf8 $status
-    $index = ($i - 1) * 25
+    @("# Agent Loop Status", "", "Updated: $stamp", "", "- Run: iteration $i (continuous)", "- Stage: archive replay (PNG -> OCR -> lookup -> card)", "- Records: $records", "- Next: continue until the replay goal is verified") | Set-Content -Encoding utf8 $status
+    if (Test-Path (Join-Path $repo 'docs\agent-loop.stop')) { break }
+    $index = (($i - 1) * 25) % 1000
     $child = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index) -PassThru
     while (-not $child.HasExited) {
         $heartbeat = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
@@ -28,6 +26,6 @@ for ($i = 1; $i -le $Iterations; $i++) {
 }
 
 $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-@("# Agent Loop Status", "", "Updated: $stamp", "", "- Run: completed $Iterations iterations", "- Stage: awaiting result review", "- Next: classify replay output") | Set-Content -Encoding utf8 $status
+@("# Agent Loop Status", "", "Updated: $stamp", "", "- Run: stopped by stop marker after $($i - 1) iterations", "- Stage: awaiting result review", "- Next: classify replay output") | Set-Content -Encoding utf8 $status
 Remove-Item $pidPath -ErrorAction SilentlyContinue
 Add-Content -Encoding utf8 $logPath "[$stamp] runner completed"
