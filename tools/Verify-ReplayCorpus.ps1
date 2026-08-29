@@ -4,6 +4,7 @@ param(
     [int]$DelayMilliseconds = 250,
     [int]$ReplaySettleMilliseconds = 1000,
     [int]$ReplayTimeoutSeconds = 30,
+    [int]$MaxRunSeconds = 0,
     [string]$SummaryPath,
     [switch]$Stratified
 )
@@ -20,6 +21,7 @@ if (!(Test-Path $exe)) { throw "Built app not found: $exe" }
 if (!(Test-Path $records)) { throw "Lookup archive not found: $records" }
 if ($SampleCount -lt 1) { throw 'SampleCount must be positive.' }
 if ($ReplayTimeoutSeconds -lt 1) { throw 'ReplayTimeoutSeconds must be positive.' }
+if ($MaxRunSeconds -lt 0) { throw 'MaxRunSeconds must be zero (unbounded) or positive.' }
 
 New-Item -ItemType Directory -Force -Path (Split-Path $outputRecords) | Out-Null
 
@@ -37,13 +39,27 @@ if ($Stratified) {
 }
 if (@($indices).Count -eq 0) { throw "No replayable records at or after index $StartIndex." }
 
+$runStartedAt = Get-Date
+$runTimeLimitReached = $false
 $results = @(foreach ($index in $indices) {
+    if ($MaxRunSeconds -gt 0 -and ((Get-Date) - $runStartedAt).TotalSeconds -ge $MaxRunSeconds) {
+        $runTimeLimitReached = $true
+        break
+    }
+
     $before = if (Test-Path $outputRecords) { (Get-Content -Encoding utf8 $outputRecords).Count } else { 0 }
     $process = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index, '--replay-delay-ms', $ReplaySettleMilliseconds) -PassThru
-    $replayTimedOut = -not $process.WaitForExit($ReplayTimeoutSeconds * 1000)
+    $remainingRunMilliseconds = if ($MaxRunSeconds -gt 0) {
+        [Math]::Max(1, [int](($MaxRunSeconds - ((Get-Date) - $runStartedAt).TotalSeconds) * 1000))
+    } else { [int]::MaxValue }
+    $waitMilliseconds = [Math]::Min($ReplayTimeoutSeconds * 1000, $remainingRunMilliseconds)
+    $replayTimedOut = -not $process.WaitForExit($waitMilliseconds)
     if ($replayTimedOut) {
         Stop-Process -Id $process.Id -Force
         $process.WaitForExit()
+        if ($MaxRunSeconds -gt 0 -and ((Get-Date) - $runStartedAt).TotalSeconds -ge $MaxRunSeconds) {
+            $runTimeLimitReached = $true
+        }
     }
     Start-Sleep -Milliseconds $DelayMilliseconds
     $lines = if (Test-Path $outputRecords) { @(Get-Content -Encoding utf8 $outputRecords) } else { @() }
@@ -123,7 +139,7 @@ $regressions = @($results | Where-Object Diagnostic -eq 'OCR regression').Count
 $recoveries = @($results | Where-Object Diagnostic -eq 'OCR recovery').Count
 $replayTimeouts = @($results | Where-Object ReplayTimedOut).Count
 $replayFailures = @($results | Where-Object { $_.ReplayTimedOut -or $_.ExitCode -ne 0 }).Count
-"Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_timeouts=$replayTimeouts; replay_failures=$replayFailures"
+"Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_timeouts=$replayTimeouts; replay_failures=$replayFailures; run_time_limit_reached=$runTimeLimitReached"
 
 if ($SummaryPath) {
     $summary = [pscustomobject]@{
@@ -131,6 +147,8 @@ if ($SummaryPath) {
         StartIndex = $StartIndex
         RequestedSamples = $SampleCount
         ActualSamples = $results.Count
+        MaxRunSeconds = $MaxRunSeconds
+        RunTimeLimitReached = $runTimeLimitReached
         OcrNonEmpty = $ocrSuccess
         DictionaryFound = $lookupSuccess
         OcrRegressions = $regressions

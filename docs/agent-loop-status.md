@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 00:29:00
+Updated: 2026-08-30 00:35:00
 
-- Run: added content-class diagnostics and reran index 12 single-record replay after 64 prior loop iterations
+- Run: added a total runtime budget to archive replay and ran a 30-record stratified request with a 50-second budget
 - Stage: archive replay is repeatable with bounded execution; broad OCR quality and real-desktop stability remain unproven
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 errors; all 19 executable tests passed. The bounded replay of archive index 12 completed with exit code 0, no timeout, and dictionary result present; OCR remained empty. The new pixel-scan metrics classified this crop as `text-like` (contrast 192, edge density 0.1102, green ratio 0), so the prior “terminal/UI” hypothesis is not proven by image heuristics. JSON summary: `%TEMP%\\RealtimeTranslateCodex-replay\\summaries\\index12-contentclass.json`.
-- Fix: `tools/Verify-ReplayCorpus.ps1` now records edge density, green-pixel ratio, and a deterministic `ContentClass` (`text-like`, `likely-terminal`, `likely-hud`, `low-information`, `tiny`, or `invalid`) and uses those labels in historical-empty diagnostics and summary grouping. Existing timeout and `ActualSamples` behavior is preserved.
-- Remaining blocker: 1108 replayable screenshots still do not establish broad OCR accuracy, selection correctness, or real-desktop stability; the new classifier is heuristic and needs a larger labeled sample plus real desktop capture to validate thresholds.
-- Next: run a stratified replay collecting `ContentClass` distributions, then perform one bounded real-desktop capture/replay check before considering OCR-engine changes.
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; all 19 executable tests passed. A real Debug WPF production-pipeline replay, requested for 30 deterministic stratified records with `-MaxRunSeconds 50`, completed normally and wrote `%TEMP%\\RealtimeTranslateCodex-replay\\summaries\\stratified-budget-20260830.json`: 13 records completed before the budget, 11 had non-empty OCR, 12 had dictionary results, 0 OCR regressions, and 1 final record was deliberately stopped as the run budget expired. The completed input classes were 7 `text-like`, 5 `mixed-ui`, and 1 `low-information`.
+- Fix: `tools/Verify-ReplayCorpus.ps1` now accepts `-MaxRunSeconds`. It caps the active replay wait by the remaining total budget, terminates only the in-flight replay when the budget expires, stops before starting another sample, and writes `MaxRunSeconds` and `RunTimeLimitReached` into the JSON summary. This makes batch evidence usable under a bounded automation host instead of losing the whole run to its outer timeout.
+- Remaining blocker: 1108 replayable screenshots still do not establish broad OCR accuracy, selection correctness, or real-desktop stability. This bounded sample supports production replay reliability for completed records but does not validate the selection UI or a live desktop capture.
+- Next: perform one bounded live desktop selection/capture and replay it through the production app, then compare its saved record and card result with the archive replay evidence before considering OCR-engine changes.
