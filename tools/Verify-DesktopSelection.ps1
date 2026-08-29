@@ -39,10 +39,13 @@ try {
     Start-Sleep -Milliseconds 750
     $rect = New-Object DesktopInput+RECT
     if (![DesktopInput]::GetWindowRect($handle, [ref]$rect)) { throw 'Unable to read host window bounds.' }
+    # The loaded fixture centers the single OCR target in the client area.
+    # Stay within its 520x96 bounds rather than dragging through the title bar
+    # or blank lower half of a DPI-scaled window.
     $startX = [int](($rect.Left + $rect.Right) / 2 - 180)
-    $startY = [int](($rect.Top + $rect.Bottom) / 2)
+    $startY = [int](($rect.Top + $rect.Bottom) / 2 - 24)
     $endX = $startX + 360
-    $endY = $startY + 120
+    $endY = $startY + 48
     $record = $null
     for ($attempt = 1; $attempt -le $Attempts -and $null -eq $record; $attempt++) {
         $screenWidth = [DesktopInput]::GetSystemMetrics(0)

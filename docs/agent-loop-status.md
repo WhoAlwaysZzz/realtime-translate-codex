@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 01:08:00
+Updated: 2026-08-30 02:28:00
 
-- Run: expanded replay sampling and hardened the desktop test gesture/host rendering.
-- Stage: archive replay is repeatable; desktop hook now records a selection, but the host text is not yet reaching OCR.
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable test suite passed all 19 checks. `Verify-ReplayCorpus.ps1 -SampleCount 12 -Stratified` completed 12/12 without timeout, with 11/12 non-empty OCR and 10/12 dictionary hits (index 0 is a historical low-contrast empty selection; index 462 is `unter`, not present in the dictionary). `Verify-DesktopSelection.ps1` now produced a valid recorded selection and screenshot, but `recognizedText` was empty, so the verifier correctly failed the definition gate.
-- Fix: desktop verification uses deterministic absolute mouse motion with bounded retries, and the test host now forces visible black text and flushes WPF rendering before input injection. This addresses the prior no-record flakiness while preserving the production global right-drag hook.
-- Remaining blocker: desktop-host OCR evidence is still incomplete; the captured host window is visually blank in the screenshot despite the test text, so OCR cannot validate the live path yet. The labeled corpus also remains a five-item baseline.
-- Next: make the desktop host render a capture-verifiable text fixture (confirm with a screenshot), then rerun the desktop verifier and extend the labeled manifest with ambiguous words/context.
+- Run: fixed the desktop host capture path and reran product verification.
+- Stage: archive replay is repeatable; the real desktop right-drag path now produces OCR text and a dictionary definition.
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable suite passed all 19 checks. `Verify-DesktopSelection.ps1 -TimeoutSeconds 20 -SettleMilliseconds 1500` recorded `shelter`, a non-empty selection (`1009,729 541x72`), screenshot, and definition. `Verify-ReplayCorpus.ps1 -SampleCount 12 -Stratified` completed 12/12 without timeout or replay failure, with 11/12 non-empty OCR and 10/12 dictionary hits (historical low-contrast sample and one out-of-dictionary word remain known corpus cases).
+- Fix: the verification-only WPF host now installs a concrete text fixture after `Loaded`, uses software rendering so `CopyFromScreen` sees composed text, and the verifier drags through the centered text band. Production rendering and global right-drag behavior are unchanged.
+- Remaining blocker: the independently reviewed labeled corpus is still a five-item baseline and does not yet cover enough ambiguous words with sentence context.
+- Next: expand the reviewed screenshot manifest with ambiguous/context-rich samples, then measure sense-ranking accuracy and OCR robustness on that larger corpus.

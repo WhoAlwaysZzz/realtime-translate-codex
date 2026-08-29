@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Http;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Media;
 using RealtimeTranslate.App.Capture;
 using RealtimeTranslate.App.Ocr;
 using RealtimeTranslate.App.Presentation;
@@ -65,6 +66,10 @@ public partial class App : System.Windows.Application
 
             if (desktopTestHost && !replayMode)
             {
+                // Screen-copy OCR cannot see a hardware-composed test fixture
+                // on every desktop. The verification-only host uses WPF's
+                // software path so its text is present in the framebuffer.
+                RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly;
                 var host = new MainWindow(isDesktopTestHost: true);
                 host.Show();
                 host.Activate();
