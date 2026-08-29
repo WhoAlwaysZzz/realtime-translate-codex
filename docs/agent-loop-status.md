@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 04:02:00
+Updated: 2026-08-30 04:18:00
 
-- Run: upgraded the desktop verification fixture and assertions to exercise context capture on every real right-drag.
+- Run: widened the shared live/replay context crop vertically so nearby dialogue is included in production OCR.
 - Stage: archive replay and real desktop right-drag are executable; the fixture now renders an ambiguous verb target (`bark`) plus nearby context text, and the script requires non-empty `contextText`.
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable suite passed all 19 checks. `Verify-DesktopSelection.ps1 -TimeoutSeconds 25 -SettleMilliseconds 2500` passed with selection `1009,729 541x72`, recognized text `bark`, `ContextText: bark`, an existing screenshot, and a usable definition.
-- Fixes: desktop fixture changed from `shelter` alone to `bark` with a visible context line; desktop verification now reports and gates on context capture. The observed OCR context was only `bark`, so this run proves the context crop/OCR path is wired but not yet sentence-level quality.
-- Remaining blocker: context OCR is still too narrow in the real desktop run (it did not capture `to bark`), and the independently reviewed labeled corpus remains a five-item baseline.
-- Next: adjust fixture placement/crop or OCR preprocessing so a non-trivial sentence survives context OCR, then add that reviewed record to `tests/Data/replay-expected.json` and measure sense-ranking accuracy.
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable suite passed all 19 checks. `Verify-DesktopSelection.ps1 -TimeoutSeconds 25 -SettleMilliseconds 2500` passed with selection `1009,729 541x72`, recognized text `bark`, `ContextText: bark to`, an existing screenshot, and a usable definition. `Verify-ReplayCorpus.ps1 -Indices 0,1,2,3,4` completed without process failures, but only 1/5 replayed records had non-empty OCR.
+- Fixes: `WindowsScreenshotService` and `ReplayScreenshotService` now use 180px vertical context padding (previously 48px), keeping live and archive replay crops aligned. The real desktop run now captures adjacent text (`bark to`) instead of only the selected word.
+- Remaining blocker: desktop context OCR still does not reliably produce a complete sentence or preserve natural order, and the independently reviewed labeled corpus remains a five-item baseline; replay evidence also shows only 1/5 non-empty OCR in the sampled historical records.
+- Next: identify and review additional real archive screenshots with sentence-level context, add only human-verified records to `tests/Data/replay-expected.json`, then measure OCR and top-1 sense accuracy before further OCR tuning.

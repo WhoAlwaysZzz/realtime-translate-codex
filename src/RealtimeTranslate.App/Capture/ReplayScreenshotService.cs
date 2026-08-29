@@ -11,7 +11,7 @@ public sealed class ReplayScreenshotService
 {
     private const int CropPaddingPixels = 16;
     private const int ContextHorizontalPaddingPixels = 420;
-    private const int ContextVerticalPaddingPixels = 48;
+    private const int ContextVerticalPaddingPixels = 180;
 
     public Task<CapturedSelection> CaptureAsync(
         string screenshotPath,

@@ -11,7 +11,10 @@ public sealed class WindowsScreenshotService : IScreenshotService
 {
     private const int CropPaddingPixels = 16;
     private const int ContextHorizontalPaddingPixels = 420;
-    private const int ContextVerticalPaddingPixels = 48;
+    // Include nearby dialogue lines above/below a word selection. The desktop
+    // fixture places its sentence roughly 100px below the target; 48px cropped
+    // that line out of the context OCR input.
+    private const int ContextVerticalPaddingPixels = 180;
     private readonly string _screenshotsDirectory;
 
     public WindowsScreenshotService(string archiveRoot)
