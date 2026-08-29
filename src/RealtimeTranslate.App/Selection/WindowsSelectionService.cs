@@ -17,7 +17,9 @@ public sealed class WindowsSelectionService : ISelectionService
         var selection = await overlay.Completion;
         if (selection is not null)
         {
-            await Task.Delay(120, cancellationToken);
+            // Once the overlay has completed, preserve the user's selection even if
+            // the hotkey cancellation arrives while the UI settles.
+            await Task.Delay(120);
         }
 
         return selection;

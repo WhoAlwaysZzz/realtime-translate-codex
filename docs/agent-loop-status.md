@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 00:45:00
+Updated: 2026-08-30 01:05:00
 
-- Run: bounded the Windows OCR wait and rechecked the previously timing-out archive sample
+- Run: hardened selection completion against cancellation and attempted a live desktop verification
 - Stage: archive replay is repeatable with bounded execution; broad OCR quality and real-desktop stability remain unproven
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; all 19 executable tests passed. A real Debug WPF production-pipeline replay of archive index 443 (`agonizing`) with a 15-second total budget completed with exit code 0, non-empty OCR (`agonizing`), dictionary result present, and no replay timeout; summary: `%TEMP%\\RealtimeTranslateCodex-replay\\summaries\\index443-timeout-fix.json`. The prior 30-record stratified run remains at 13 completed records (11 OCR, 12 dictionary, 1 budget stop).
-- Fix: `WindowsOcrService` now limits each OCR image variant to 5 seconds via `WaitAsync`, skips only timed-out variants, honors cancellation, and continues to later preprocessing variants. This prevents one pathological crop from stalling the complete production lookup.
-- Remaining blocker: 1108 replayable screenshots still do not establish broad OCR accuracy, selection correctness, or real-desktop stability. The targeted sample proves the former timeout is not reproducible after the guard, but does not validate the selection UI or a live desktop capture.
-- Next: perform one bounded live desktop selection/capture and replay it through the production app, then compare its saved record and card result with archive replay evidence before considering OCR-engine changes.
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; all 19 executable tests passed. Launching the Debug WPF app succeeded as a tray-only process but exposed no targetable window; the Computer Use attempt to use Chrome as a desktop backdrop was stopped by its URL-safety precondition before any input action. No live selection record was produced.
+- Fix: `WindowsSelectionService` no longer cancels the 120 ms post-selection settle delay. Once the overlay reports a selection, a late hotkey cancellation cannot discard that valid result.
+- Remaining blocker: 1108 replayable screenshots still do not establish broad OCR accuracy, selection correctness, or real-desktop stability. Live selection remains blocked by the tray-only app surface and the desktop automation safety precondition.
+- Next: provide a targetable desktop host (or add an explicitly test-only visible host) and complete one bounded live selection/capture, then compare its saved record and card result with archive replay evidence.
