@@ -29,6 +29,7 @@ public partial class App : System.Windows.Application
         try
         {
             var replayMode = e.Args.Length >= 2 && string.Equals(e.Args[0], "--replay", StringComparison.OrdinalIgnoreCase);
+            var desktopTestHost = e.Args.Any(arg => string.Equals(arg, "--desktop-test-host", StringComparison.OrdinalIgnoreCase));
             var settings = AppSettings.CreateDefault();
             var aiSettingsStore = new AiExplanationSettingsStore(Path.Combine(settings.ArchiveRoot, "ai-settings.json"));
             aiSettingsStore.EnsureTemplateExists();
@@ -61,6 +62,13 @@ public partial class App : System.Windows.Application
                 new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")),
                 new UserPreferencesStore(Path.Combine(settings.ArchiveRoot, "settings.json")));
             _controller.Start(!replayMode);
+
+            if (desktopTestHost && !replayMode)
+            {
+                var host = new MainWindow(isDesktopTestHost: true);
+                host.Show();
+                host.Activate();
+            }
 
             if (replayMode)
             {

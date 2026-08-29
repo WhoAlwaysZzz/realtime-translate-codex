@@ -16,8 +16,21 @@ namespace RealtimeTranslate.App;
 /// </summary>
 public partial class MainWindow : Window
 {
-    public MainWindow()
+    public MainWindow(bool isDesktopTestHost = false)
     {
         InitializeComponent();
+        if (isDesktopTestHost)
+        {
+            Title = "Realtime Translate Codex · Desktop Test Host";
+            Content = new TextBlock
+            {
+                Text = "Desktop verification host\nRight-drag across the sample words to exercise OCR and lookup.",
+                FontSize = 28,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(48),
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            };
+        }
     }
 }
