@@ -131,6 +131,8 @@ $results = @(foreach ($index in $indices) {
     }
     $sourceHasOcr = ![string]::IsNullOrWhiteSpace($sourceText)
     $replayHasOcr = ![string]::IsNullOrWhiteSpace($replayedText)
+    $replayedContext = if ($newRecord -and $newRecord.PSObject.Properties.Name -contains 'contextText') { [string]$newRecord.contextText } else { '' }
+    $contextHasText = ![string]::IsNullOrWhiteSpace($replayedContext)
     $expected = $expectedByIndex[[int]$index]
     $normalize = { param($value) (([string]$value).ToLowerInvariant() -replace '[^a-z0-9]+', '') }
     $ocrExact = if ($expected) { (&$normalize $replayedText) -eq (&$normalize $expected.expectedText) } else { $null }
@@ -147,6 +149,8 @@ $results = @(foreach ($index in $indices) {
         ExitCode = if ($replayTimedOut) { $null } else { $process.ExitCode }
         ReplayTimedOut = $replayTimedOut
         RecognizedText = $replayedText
+        ContextText = $replayedContext
+        ContextAvailable = $contextHasText
         Screenshot = $quality.Screenshot
         SelectionQuality = $quality.Selection
         CropPixels = $quality.CropPixels
@@ -174,8 +178,11 @@ $labeled = @($results | Where-Object { $null -ne $_.OcrExact })
 $ocrExactCount = @($labeled | Where-Object OcrExact).Count
 $senseLabeled = @($results | Where-Object { $null -ne $_.Top1Sense })
 $top1SenseCount = @($senseLabeled | Where-Object Top1Sense).Count
+$contextLabeled = @($senseLabeled | Where-Object ContextAvailable)
+$contextTop1SenseCount = @($contextLabeled | Where-Object Top1Sense).Count
 "Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_timeouts=$replayTimeouts; replay_failures=$replayFailures; run_time_limit_reached=$runTimeLimitReached"
 if ($labeled.Count -gt 0) { "Labeled accuracy: ocr_exact=$ocrExactCount/$($labeled.Count); top1_sense=$top1SenseCount/$($senseLabeled.Count)" }
+if ($senseLabeled.Count -gt 0) { "Context coverage: context_available=$($contextLabeled.Count)/$($senseLabeled.Count); context_top1_sense=$contextTop1SenseCount/$($contextLabeled.Count)" }
 
 if ($SummaryPath) {
     $summary = [pscustomobject]@{
@@ -195,6 +202,8 @@ if ($SummaryPath) {
         OcrExact = $ocrExactCount
         Top1SenseLabeled = $senseLabeled.Count
         Top1Sense = $top1SenseCount
+        ContextLabeled = $contextLabeled.Count
+        ContextTop1Sense = $contextTop1SenseCount
         Diagnostics = @($results | Group-Object Diagnostic | ForEach-Object {
             [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
         })
