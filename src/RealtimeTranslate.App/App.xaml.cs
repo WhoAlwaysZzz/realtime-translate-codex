@@ -73,6 +73,8 @@ public partial class App : System.Windows.Application
 
                 var capture = await new ReplayScreenshotService().CaptureAsync(record.ScreenshotPath, record.Selection);
                 await _controller.ReplayAsync(capture);
+                await Task.Delay(8000);
+                Shutdown();
             }
         }
         catch (Exception ex)
