@@ -6,6 +6,14 @@ $log = Join-Path $repo 'docs\agentic-loop.log'
 $status = Join-Path $repo 'docs\agentic-loop-status.md'
 $pidPath = Join-Path $repo 'docs\agentic-loop.pid'
 $done = Join-Path $repo 'docs\agent-loop.done'
+
+function Repair-Mojibake([string]$text) {
+    if ([string]::IsNullOrEmpty($text)) { return $text }
+    try {
+        $gb = [Text.Encoding]::GetEncoding(936)
+        return [Text.Encoding]::UTF8.GetString($gb.GetBytes($text))
+    } catch { return $text }
+}
 Set-Content -Encoding ascii $pidPath $PID
 $iteration = 0
 
@@ -21,6 +29,7 @@ You are the autonomous engineering agent for this repository. Continue the curre
     $ErrorActionPreference = 'Continue'
     $output = $prompt | & codex exec -C $repo --dangerously-bypass-approvals-and-sandbox - 2>&1 | Out-String
     $ErrorActionPreference = $previousErrorAction
+    $output = Repair-Mojibake $output
     Add-Content -Encoding utf8 $log "[$(Get-Date -Format s)] OUTPUT iteration=$iteration`r`n$output"
     Start-Sleep -Seconds $PauseSeconds
 }
