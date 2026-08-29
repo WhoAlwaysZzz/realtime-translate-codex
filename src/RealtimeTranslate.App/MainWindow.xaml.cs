@@ -38,26 +38,36 @@ public partial class MainWindow : Window
     {
         // Install after the window has loaded so the test fixture cannot be
         // replaced by the initial XAML content during window creation.
-        Content = new Border
+        var target = new System.Windows.Controls.TextBox
         {
+            Text = "bark",
+            FontSize = 48,
+            FontWeight = FontWeights.Bold,
+            Foreground = WpfBrushes.Black,
             Background = WpfBrushes.White,
-            Child = new System.Windows.Controls.TextBox
-            {
-                Text = "shelter",
-                FontSize = 48,
-                FontWeight = FontWeights.Bold,
-                Foreground = WpfBrushes.Black,
-                Background = WpfBrushes.White,
-                BorderThickness = new Thickness(0),
-                IsReadOnly = true,
-                Width = 520,
-                Height = 96,
-                TextAlignment = TextAlignment.Center,
-                VerticalContentAlignment = System.Windows.VerticalAlignment.Center,
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-                VerticalAlignment = System.Windows.VerticalAlignment.Center,
-            },
+            BorderThickness = new Thickness(0),
+            IsReadOnly = true,
+            Width = 520,
+            Height = 96,
+            TextAlignment = TextAlignment.Center,
+            VerticalContentAlignment = System.Windows.VerticalAlignment.Center,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            VerticalAlignment = System.Windows.VerticalAlignment.Center,
         };
+        var context = new TextBlock
+        {
+            Text = "to bark",
+            FontSize = 36,
+            FontWeight = FontWeights.Bold,
+            Foreground = WpfBrushes.Black,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            VerticalAlignment = System.Windows.VerticalAlignment.Bottom,
+            Margin = new Thickness(24, 0, 24, 72),
+        };
+        var fixture = new Grid { Background = WpfBrushes.White };
+        fixture.Children.Add(target);
+        fixture.Children.Add(context);
+        Content = fixture;
         UpdateLayout();
     }
 }

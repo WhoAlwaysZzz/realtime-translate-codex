@@ -8,7 +8,7 @@
         Title="MainWindow" Height="450" Width="800">
     <Grid Background="White">
         <TextBlock x:Name="DesktopTestText"
-                   Text="Desktop verification host&#xA;RIGHT DRAG across: shelter   companion   discover"
+                   Text="Desktop verification host&#xA;RIGHT DRAG across: bark"
                    FontSize="28"
                    Foreground="Black"
                    TextWrapping="Wrap"

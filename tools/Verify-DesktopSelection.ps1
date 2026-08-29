@@ -39,7 +39,8 @@ try {
     Start-Sleep -Milliseconds 750
     $rect = New-Object DesktopInput+RECT
     if (![DesktopInput]::GetWindowRect($handle, [ref]$rect)) { throw 'Unable to read host window bounds.' }
-    # The loaded fixture centers the single OCR target in the client area.
+    # The loaded fixture centers the target word; a sentence below it exercises
+    # the production context crop/OCR and sense-ranking path.
     # Stay within its 520x96 bounds rather than dragging through the title bar
     # or blank lower half of a DPI-scaled window.
     $startX = [int](($rect.Left + $rect.Right) / 2 - 180)
@@ -79,8 +80,9 @@ try {
     $validSelection = $record.selection.width -gt 0 -and $record.selection.height -gt 0
     $hasScreenshot = ![string]::IsNullOrWhiteSpace($record.screenshotPath) -and (Test-Path $record.screenshotPath)
     $hasDefinition = @($record.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -gt 0
-    [pscustomobject]@{ WindowHandle = $handle; Selection = "$($record.selection.x),$($record.selection.y) $($record.selection.width)x$($record.selection.height)"; RecognizedText = $record.recognizedText; ScreenshotExists = $hasScreenshot; DefinitionFound = $hasDefinition } | Format-List
-    if (!$validSelection -or !$hasScreenshot -or !$hasDefinition) { throw 'Desktop selection produced incomplete lookup evidence.' }
+    $hasContext = ![string]::IsNullOrWhiteSpace([string]$record.contextText)
+    [pscustomobject]@{ WindowHandle = $handle; Selection = "$($record.selection.x),$($record.selection.y) $($record.selection.width)x$($record.selection.height)"; RecognizedText = $record.recognizedText; ContextText = $record.contextText; ScreenshotExists = $hasScreenshot; DefinitionFound = $hasDefinition; ContextCaptured = $hasContext } | Format-List
+    if (!$validSelection -or !$hasScreenshot -or !$hasDefinition -or !$hasContext) { throw 'Desktop selection produced incomplete context-aware lookup evidence.' }
 }
 finally {
     if (!$process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }

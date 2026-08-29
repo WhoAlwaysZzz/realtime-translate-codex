@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 03:45:00
+Updated: 2026-08-30 04:02:00
 
-- Run: repaired two verification-script portability failures and added context capture to new lookup records.
-- Stage: archive replay and real desktop right-drag are executable; new records now preserve context OCR for later human review.
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable suite passed all 19 checks. `Verify-ReplayCorpus.ps1 -SampleCount 12 -Stratified` completed 12/12 with 0 timeouts/failures, 11/12 non-empty OCR, and 11/12 dictionary hits. `Verify-DesktopSelection.ps1 -TimeoutSeconds 20 -SettleMilliseconds 1500` recorded `shelter`, selection `1009,729 541x72`, a screenshot, and a definition; the appended record contains `contextText: shelter`.
-- Fixes: parse the expected manifest as one UTF-8 JSON document (avoids nested-array casting in PowerShell) and replace unavailable `[Math]::Clamp` with equivalent Min/Max bounds. `LookupRecord.ContextText` is optional for backward-compatible JSONL and is populated from context OCR in the production pipeline.
-- Remaining blocker: the independently reviewed labeled corpus is still a five-item baseline and does not yet cover enough ambiguous words with sentence context.
-- Next: collect/review new records with non-trivial `contextText`, extend `tests/Data/replay-expected.json`, then measure sense-ranking accuracy and OCR robustness on that larger corpus.
+- Run: upgraded the desktop verification fixture and assertions to exercise context capture on every real right-drag.
+- Stage: archive replay and real desktop right-drag are executable; the fixture now renders an ambiguous verb target (`bark`) plus nearby context text, and the script requires non-empty `contextText`.
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable suite passed all 19 checks. `Verify-DesktopSelection.ps1 -TimeoutSeconds 25 -SettleMilliseconds 2500` passed with selection `1009,729 541x72`, recognized text `bark`, `ContextText: bark`, an existing screenshot, and a usable definition.
+- Fixes: desktop fixture changed from `shelter` alone to `bark` with a visible context line; desktop verification now reports and gates on context capture. The observed OCR context was only `bark`, so this run proves the context crop/OCR path is wired but not yet sentence-level quality.
+- Remaining blocker: context OCR is still too narrow in the real desktop run (it did not capture `to bark`), and the independently reviewed labeled corpus remains a five-item baseline.
+- Next: adjust fixture placement/crop or OCR preprocessing so a non-trivial sentence survives context OCR, then add that reviewed record to `tests/Data/replay-expected.json` and measure sense-ranking accuracy.
