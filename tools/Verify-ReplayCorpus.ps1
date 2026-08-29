@@ -6,12 +6,15 @@ param(
     [int]$ReplayTimeoutSeconds = 30,
     [int]$MaxRunSeconds = 0,
     [string]$SummaryPath,
+    [string]$ExpectedManifestPath,
+    [int[]]$Indices,
     [switch]$Stratified
 )
 
 $ErrorActionPreference = 'Stop'
 $null = Add-Type -AssemblyName System.Drawing
 $repo = Split-Path -Parent $PSScriptRoot
+$ExpectedManifestPath = if ($ExpectedManifestPath) { $ExpectedManifestPath } else { Join-Path $repo 'tests\Data\replay-expected.json' }
 $exe = Join-Path $repo 'src\RealtimeTranslate.App\bin\Debug\net8.0-windows10.0.19041.0\RealtimeTranslate.App.exe'
 $records = Join-Path $env:LOCALAPPDATA 'RealtimeTranslateCodex\records\lookups.jsonl'
 $outputRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'RealtimeTranslateCodex-replay'
@@ -22,6 +25,14 @@ if (!(Test-Path $records)) { throw "Lookup archive not found: $records" }
 if ($SampleCount -lt 1) { throw 'SampleCount must be positive.' }
 if ($ReplayTimeoutSeconds -lt 1) { throw 'ReplayTimeoutSeconds must be positive.' }
 if ($MaxRunSeconds -lt 0) { throw 'MaxRunSeconds must be zero (unbounded) or positive.' }
+$expectedByIndex = @{}
+if ($ExpectedManifestPath -and (Test-Path $ExpectedManifestPath)) {
+    $manifest = @(Get-Content -Encoding utf8 $ExpectedManifestPath | ConvertFrom-Json)
+    foreach ($entry in $manifest) {
+        if ($null -eq $entry.index -or [string]::IsNullOrWhiteSpace([string]$entry.expectedText)) { throw "Expected manifest entries require index and expectedText: $ExpectedManifestPath" }
+        $expectedByIndex[[int]$entry.index] = $entry
+    }
+}
 
 New-Item -ItemType Directory -Force -Path (Split-Path $outputRecords) | Out-Null
 
@@ -29,7 +40,11 @@ $archive = @(Get-Content -Encoding utf8 $records | ForEach-Object {
     try { $_ | ConvertFrom-Json } catch { $null }
 } | Where-Object { $_ -and $_.screenshotPath -and $_.selection })
 $available = 0..($archive.Count - 1) | Where-Object { $_ -ge $StartIndex }
-if ($Stratified) {
+if ($Indices) {
+    $indices = @($Indices | Select-Object -Unique)
+    $invalidIndices = @($indices | Where-Object { $_ -lt 0 -or $_ -ge $archive.Count })
+    if ($invalidIndices.Count -gt 0) { throw "Replay indices out of range: $($invalidIndices -join ', ')" }
+} elseif ($Stratified) {
     # Deterministic evenly spaced picks cover the full archive without relying on random state.
     $indices = @(0..([Math]::Min($SampleCount, $available.Count) - 1) | ForEach-Object {
         $available[[Math]::Floor($_ * $available.Count / [double][Math]::Min($SampleCount, $available.Count))]
@@ -114,10 +129,16 @@ $results = @(foreach ($index in $indices) {
     }
     $sourceHasOcr = ![string]::IsNullOrWhiteSpace($sourceText)
     $replayHasOcr = ![string]::IsNullOrWhiteSpace($replayedText)
+    $expected = $expectedByIndex[[int]$index]
+    $normalize = { param($value) (([string]$value).ToLowerInvariant() -replace '[^a-z0-9]+', '') }
+    $ocrExact = if ($expected) { (&$normalize $replayedText) -eq (&$normalize $expected.expectedText) } else { $null }
     $definitionValues = @($newRecord.definitions | ForEach-Object { [string]$_ })
     $hasUsableDefinition = $replayHasOcr -and @($definitionValues | Where-Object {
         $_ -and $_ -notmatch '未识别|未找到|失败'
     }).Count -gt 0
+    $top1Sense = if ($expected -and $expected.expectedSense) {
+        $hasUsableDefinition -and (([string]$definitionValues[0]).ToLowerInvariant().Contains(([string]$expected.expectedSense).ToLowerInvariant()))
+    } else { $null }
     [pscustomobject]@{
         Index = $index
         SourceWord = $sourceText
@@ -132,6 +153,10 @@ $results = @(foreach ($index in $indices) {
         GreenRatio = $quality.GreenRatio
         ContentClass = $quality.ContentClass
         FoundDefinition = $hasUsableDefinition
+        ExpectedText = if ($expected) { [string]$expected.expectedText } else { $null }
+        OcrExact = $ocrExact
+        ExpectedSense = if ($expected) { [string]$expected.expectedSense } else { $null }
+        Top1Sense = $top1Sense
         Diagnostic = if ($replayTimedOut) { 'replay timeout' } elseif (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'invalid') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'tiny') { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'low-information') { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -in @('likely-terminal','likely-hud')) { "historical empty: $($quality.ContentClass)" } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$hasUsableDefinition) { 'no definition' } else { 'ok' }
     }
 })
@@ -143,7 +168,12 @@ $regressions = @($results | Where-Object Diagnostic -eq 'OCR regression').Count
 $recoveries = @($results | Where-Object Diagnostic -eq 'OCR recovery').Count
 $replayTimeouts = @($results | Where-Object ReplayTimedOut).Count
 $replayFailures = @($results | Where-Object { $_.ReplayTimedOut -or $_.ExitCode -ne 0 }).Count
+$labeled = @($results | Where-Object { $null -ne $_.OcrExact })
+$ocrExactCount = @($labeled | Where-Object OcrExact).Count
+$senseLabeled = @($results | Where-Object { $null -ne $_.Top1Sense })
+$top1SenseCount = @($senseLabeled | Where-Object Top1Sense).Count
 "Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_timeouts=$replayTimeouts; replay_failures=$replayFailures; run_time_limit_reached=$runTimeLimitReached"
+if ($labeled.Count -gt 0) { "Labeled accuracy: ocr_exact=$ocrExactCount/$($labeled.Count); top1_sense=$top1SenseCount/$($senseLabeled.Count)" }
 
 if ($SummaryPath) {
     $summary = [pscustomobject]@{
@@ -159,6 +189,10 @@ if ($SummaryPath) {
         OcrRecoveries = $recoveries
         ReplayTimeouts = $replayTimeouts
         ReplayFailures = $replayFailures
+        LabeledSamples = $labeled.Count
+        OcrExact = $ocrExactCount
+        Top1SenseLabeled = $senseLabeled.Count
+        Top1Sense = $top1SenseCount
         Diagnostics = @($results | Group-Object Diagnostic | ForEach-Object {
             [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
         })

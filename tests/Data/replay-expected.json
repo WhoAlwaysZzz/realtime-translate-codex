@@ -1,0 +1,7 @@
+[
+  { "index": 100, "expectedText": "license", "expectedSense": "许可证" },
+  { "index": 200, "expectedText": "parrot", "expectedSense": "鹦鹉" },
+  { "index": 500, "expectedText": "frail", "expectedSense": "脆弱" },
+  { "index": 600, "expectedText": "hopscotch", "expectedSense": "跳房子" },
+  { "index": 700, "expectedText": "calamity", "expectedSense": "灾难" }
+]
