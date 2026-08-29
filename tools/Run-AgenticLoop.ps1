@@ -17,7 +17,7 @@ while (-not (Test-Path $done)) {
     $prompt = @"
 You are the autonomous engineering agent for this repository. Continue the current goal: make archived screenshot replay execute and validate the real production lookup flow. Read docs/agent-loop-status.md, docs/agent-loop.log, and the code before acting. Inspect the latest evidence, identify the single highest-value blocker, implement the smallest reversible fix, build and run a real verification. Commit coherent changes. Do not ask the user for routine decisions. Update docs/agent-loop-status.md with facts, evidence, and next action. If the goal is genuinely verified, create docs/agent-loop.done. If not, leave the repository ready for the next iteration. Do not modify unrelated user changes.
 "@
-    $output = $prompt | & codex exec -C $repo --dangerously-bypass-approvals-and-sandbox --no-alt-screen - 2>&1 | Out-String
+    $output = $prompt | & codex exec -C $repo --dangerously-bypass-approvals-and-sandbox - 2>&1 | Out-String
     Add-Content -Encoding utf8 $log "[$(Get-Date -Format s)] OUTPUT iteration=$iteration`r`n$output"
     Start-Sleep -Seconds $PauseSeconds
 }
