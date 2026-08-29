@@ -116,7 +116,7 @@ public sealed class AppController : IDisposable
         _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
-    public void Start(bool enableSystemIntegration = true)
+    public void Start(bool enableSystemIntegration = true, bool registerHotkeys = true)
     {
         Directory.CreateDirectory(_settings.ArchiveRoot);
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "screenshots"));
@@ -127,12 +127,18 @@ public sealed class AppController : IDisposable
             return;
         }
 
-        RegisterCommandHotkeys();
+        if (registerHotkeys)
+        {
+            RegisterCommandHotkeys();
+        }
         _rightDragSelectionService.Start();
-        UpdateTray();
-        _trayIconService.ShowInfo(
-            "Realtime Translate Codex",
-            $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, {_preferences.RecentLookupsHotkey} to replay, or {_preferences.ExplainSelectionHotkey} to explain text.");
+        if (registerHotkeys)
+        {
+            UpdateTray();
+            _trayIconService.ShowInfo(
+                "Realtime Translate Codex",
+                $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, {_preferences.RecentLookupsHotkey} to replay, or {_preferences.ExplainSelectionHotkey} to explain text.");
+        }
     }
 
     public void Dispose()

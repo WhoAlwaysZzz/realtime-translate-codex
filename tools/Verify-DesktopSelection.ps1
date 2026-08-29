@@ -16,7 +16,10 @@ public static class DesktopInput {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+  [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
+  [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public MOUSEINPUT mi; }
+  [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public UIntPtr dwExtraInfo; }
+  public static void Mouse(uint flags, int dx = 0, int dy = 0) { var input = new INPUT { type = 0, mi = new MOUSEINPUT { dx = dx, dy = dy, dwFlags = flags } }; if (SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>()) != 1) throw new System.ComponentModel.Win32Exception(); }
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
 }
 '@
@@ -37,12 +40,13 @@ try {
     $startX = [int](($rect.Left + $rect.Right) / 2 - 180)
     $startY = [int](($rect.Top + $rect.Bottom) / 2)
     $endX = $startX + 360
+    $endY = $startY + 120
     [DesktopInput]::SetCursorPos($startX, $startY) | Out-Null
-    [DesktopInput]::mouse_event(0x0008, 0, 0, 0, [UIntPtr]::Zero)
+    [DesktopInput]::Mouse(0x0008)
     Start-Sleep -Milliseconds 300
-    [DesktopInput]::SetCursorPos($endX, $startY) | Out-Null
+    [DesktopInput]::Mouse(0x0001, $endX - $startX, $endY - $startY)
     Start-Sleep -Milliseconds 300
-    [DesktopInput]::mouse_event(0x0010, 0, 0, 0, [UIntPtr]::Zero)
+    [DesktopInput]::Mouse(0x0010)
     Start-Sleep -Milliseconds $SettleMilliseconds
     $lines = if (Test-Path $records) { @(Get-Content -Encoding utf8 $records) } else { @() }
     if ($lines.Count -le $before) {

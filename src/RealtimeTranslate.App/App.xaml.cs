@@ -61,7 +61,7 @@ public partial class App : System.Windows.Application
                 new JsonlTextExplanationRecorder(settings.ArchiveRoot),
                 new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")),
                 new UserPreferencesStore(Path.Combine(settings.ArchiveRoot, "settings.json")));
-            _controller.Start(!replayMode);
+            _controller.Start(!replayMode, registerHotkeys: !desktopTestHost);
 
             if (desktopTestHost && !replayMode)
             {
