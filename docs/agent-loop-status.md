@@ -1,10 +1,10 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-30 05:48:00
+Updated: 2026-08-30 06:12:00
 
-- Run: added context-coverage observability to archive replay verification.
-- Stage: archive replay and real desktop right-drag are executable; the manifest covers seven labeled records, including `1090` (`concealed`) and `1127` (`bark`).
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable suite passed all 19 checks. A real replay across indices `100,200,500,600,700,1090,1127` completed with no timeout/process failure and reported `ocr_exact=7/7`, `dictionary_found=7`, `top1_sense=7/7`, `context_available=7/7`, and `context_top1_sense=7/7`. Full per-record context is archived in `artifacts/labeled-context-20260830.json`.
-- Fixes: `tools/Verify-ReplayCorpus.ps1` now records `ContextText`/`ContextAvailable` per result and emits `ContextLabeled`/`ContextTop1Sense` summary fields, so sense accuracy is not mistaken for context-aware evidence. No OCR or UI behavior was changed.
-- Remaining blocker: the independently reviewed labeled corpus is still only seven items; seven context-bearing samples are insufficient to establish the 85% contextual Top-1 target or cover varied scenes and parts of speech.
-- Next: review additional real archive screenshots, add only human-verified sentence/context pairs to `tests/Data/replay-expected.json`, then rerun the labeled replay and use the new context coverage metrics to decide whether OCR or sense-ranking work is warranted.
+- Run: expanded the human-verified replay manifest with five additional sentence-context samples (`sarcasm`, `golems`, `staunch`, `neglected`, `fortress`).
+- Stage: archive replay and real desktop right-drag are executable; the manifest now covers twelve labeled records across nouns, verbs, adjectives, and game/UI text.
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors, and the executable suite passed all 19 checks. A real replay across indices `100,200,500,600,700,187,281,563,657,751,1090,1127` completed with no timeout/process failure: `ocr_exact=12/12`, `dictionary_found=12/12`, `context_available=12/12`, and `context_top1_sense=11/12` (91.7%). Full per-record evidence is archived in `artifacts/labeled-context-20260830-r2.json`; the lone miss is `staunch`, where the first returned sense is verbal while the sentence uses the adjective “staunch supporter.”
+- Fixes: `tests/Data/replay-expected.json` now records the five human-verified words and expected senses. No OCR or UI behavior was changed.
+- Remaining blocker: context capture is reliable on this set, but `LocalContextSenseRanker` cannot disambiguate a selected word when OCR masks the target itself; the `staunch` adjective case is therefore ranked as the verbal sense. The 12-item set clears the 85% target but is still too small for broad scene coverage.
+- Next: add a targeted regression test and minimal ranking signal for adjective-modifier contexts (without exposing the selected word twice), then rerun the full labeled replay before broader corpus expansion.

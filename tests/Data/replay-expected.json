@@ -4,6 +4,11 @@
   { "index": 500, "expectedText": "frail", "expectedSense": "脆弱" },
   { "index": 600, "expectedText": "hopscotch", "expectedSense": "跳房子" },
   { "index": 700, "expectedText": "calamity", "expectedSense": "灾难" },
+  { "index": 187, "expectedText": "sarcasm", "expectedSense": "讽刺" },
+  { "index": 281, "expectedText": "golems", "expectedSense": "机器人" },
+  { "index": 563, "expectedText": "staunch", "expectedSense": "忠实" },
+  { "index": 657, "expectedText": "neglected", "expectedSense": "被忽视" },
+  { "index": 751, "expectedText": "fortress", "expectedSense": "城堡" },
   { "index": 1090, "expectedText": "concealed", "expectedSense": "隐匿" },
   { "index": 1127, "expectedText": "bark", "expectedSense": "吠" }
 ]
