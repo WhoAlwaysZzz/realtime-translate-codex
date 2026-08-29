@@ -1,9 +1,9 @@
 ﻿# Agent Loop Status
 
-Updated: 2026-08-29 21:34:10
+Updated: 2026-08-29 21:38:00
 
-- Run: single real replay verification after 61 prior loop iterations
-- Stage: blocked at Windows OCR input quality, after PNG crop and production lookup pipeline execution
-- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` passed with 0 warnings and 0 errors; all 19 existing tests passed. Running the built app with `--replay %LOCALAPPDATA%\\RealtimeTranslateCodex\\records\\lookups.jsonl --index 0` and `--index 1` exited 0 and wrote isolated replay records, proving archived PNG loading, crop, app startup, and `AppController.ReplayAsync` execution. Both records had `recognizedText: ""`, empty `ocrCandidates`, and definition `未识别到单词`; no real card was produced. The first archived screenshot visibly contains a PowerShell/file-manager desktop rather than a clean word crop, so this is currently an input/OCR limitation, not a confirmed dictionary-flow defect.
-- Fix: replay mode now records its result under `%TEMP%\\RealtimeTranslateCodex-replay` instead of suppressing records, keeping user history untouched while making verification observable.
-- Next: obtain or select an archived screenshot whose selection tightly encloses readable English text, then rerun replay and require a non-empty OCR candidate plus a found dictionary result before marking the goal verified.
+- Run: real replay verification after 61 prior loop iterations
+- Stage: verified end-to-end archive replay (PNG -> crop -> Windows OCR -> dictionary -> card record)
+- Evidence: `dotnet build RealtimeTranslateCodex.sln --no-restore` passed with 0 warnings and 0 errors. Built app replayed `%LOCALAPPDATA%\\RealtimeTranslateCodex\\records\\lookups.jsonl` at `--index 13` using archived screenshot `20260617-162701-105.png`; isolated output `%TEMP%\\RealtimeTranslateCodex-replay\\records\\lookups.jsonl` contains `recognizedText: "translate"`, OCR candidate `translate`, and dictionary definition `v. 翻译、解释、转化、被译`. This exercises `ReplayScreenshotService`, `WindowsOcrService`, and `AppController.ReplayAsync` without writing user history.
+- Fix: replay mode records results under `%TEMP%\\RealtimeTranslateCodex-replay`, preserving production history while making verification observable.
+- Next: none; retain the replay command and isolated output path as the regression check for future changes.
