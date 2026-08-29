@@ -13,6 +13,7 @@ namespace RealtimeTranslate.App.Ocr;
 
 public sealed class WindowsOcrService : IOcrService
 {
+    private static readonly TimeSpan VariantTimeout = TimeSpan.FromSeconds(5);
     private readonly OcrEngine? _engine = CreateEngine();
 
     public async Task<IReadOnlyList<OcrCandidate>> RecognizeAsync(byte[] imagePng, CancellationToken cancellationToken = default)
@@ -31,7 +32,17 @@ public sealed class WindowsOcrService : IOcrService
         var allCandidates = new List<OcrCandidate>();
         foreach (var variant in CreateImageVariants(imagePng))
         {
-            var candidates = await RecognizeVariantAsync(engine, variant, cancellationToken);
+            IReadOnlyList<OcrCandidate> candidates;
+            try
+            {
+                candidates = await RecognizeVariantAsync(engine, variant, cancellationToken)
+                    .WaitAsync(VariantTimeout, cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                // A malformed or unusually large crop must not stall the whole lookup.
+                continue;
+            }
             AddUniqueCandidates(allCandidates, candidates);
             if (allCandidates.Count > 0)
             {
