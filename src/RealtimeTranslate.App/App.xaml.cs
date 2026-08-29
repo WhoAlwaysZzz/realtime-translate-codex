@@ -66,6 +66,9 @@ public partial class App : System.Windows.Application
             {
                 var recordsPath = e.Args[1];
                 var replayIndex = e.Args.Length >= 4 && int.TryParse(e.Args[3], out var parsedIndex) ? parsedIndex : 0;
+                var replayDelayMilliseconds = e.Args.Length >= 6 && int.TryParse(e.Args[5], out var parsedDelay)
+                    ? Math.Max(0, parsedDelay)
+                    : 8000;
                 var record = File.ReadLines(recordsPath)
                     .Select(ParseReplayRecord)
                     .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.ScreenshotPath))
@@ -78,7 +81,7 @@ public partial class App : System.Windows.Application
 
                 var capture = await new ReplayScreenshotService().CaptureAsync(record.ScreenshotPath, record.Selection);
                 await _controller.ReplayAsync(capture);
-                await Task.Delay(8000);
+                await Task.Delay(replayDelayMilliseconds);
                 Shutdown();
             }
         }

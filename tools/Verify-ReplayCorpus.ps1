@@ -2,6 +2,7 @@ param(
     [int]$SampleCount = 12,
     [int]$StartIndex = 0,
     [int]$DelayMilliseconds = 250,
+    [int]$ReplaySettleMilliseconds = 1000,
     [switch]$Stratified
 )
 
@@ -34,7 +35,7 @@ if (!$indices) { throw "No replayable records at or after index $StartIndex." }
 
 $results = foreach ($index in $indices) {
     $before = if (Test-Path $outputRecords) { (Get-Content -Encoding utf8 $outputRecords).Count } else { 0 }
-    $process = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index) -Wait -PassThru
+    $process = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index, '--replay-delay-ms', $ReplaySettleMilliseconds) -Wait -PassThru
     Start-Sleep -Milliseconds $DelayMilliseconds
     $lines = if (Test-Path $outputRecords) { @(Get-Content -Encoding utf8 $outputRecords) } else { @() }
     $newRecord = if ($lines.Count -gt $before) { $lines[$before] | ConvertFrom-Json } else { $null }
