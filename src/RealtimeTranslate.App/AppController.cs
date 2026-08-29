@@ -370,13 +370,20 @@ public sealed class AppController : IDisposable
     }
 
     private async Task LookupSelectionCoreAsync(ScreenSelection selection)
+        => await LookupSelectionCoreAsync(selection, null);
+
+    /// <summary>Runs the production lookup pipeline against a supplied capture (used by archive replay).</summary>
+    public Task ReplayAsync(CapturedSelection capture)
+        => LookupSelectionCoreAsync(capture.Selection, capture);
+
+    private async Task LookupSelectionCoreAsync(ScreenSelection selection, CapturedSelection? suppliedCapture)
     {
-        CapturedSelection? capture = null;
+        CapturedSelection? capture = suppliedCapture;
         IReadOnlyList<OcrCandidate> candidates = [];
 
         try
         {
-            capture = await _screenshotService.CaptureAsync(selection, _saveScreenshots);
+            capture ??= await _screenshotService.CaptureAsync(selection, _saveScreenshots);
             candidates = await _ocrService.RecognizeAsync(capture.CroppedImagePng);
             var contextCandidates = await _ocrService.RecognizeAsync(capture.ContextImagePng);
             var contextText = _ocrTextComposer.Compose(contextCandidates);
