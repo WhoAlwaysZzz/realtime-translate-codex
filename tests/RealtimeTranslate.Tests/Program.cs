@@ -112,7 +112,8 @@ static void RecorderWritesJsonlWithScreenshotAndSelection()
         Definitions: ["跑", "运行"],
         Selection: new ScreenSelection(10, 20, 120, 32),
         ScreenshotPath: Path.Combine(root, "screenshots", "sample.png"),
-        OcrCandidates: [new OcrCandidate("running", 0.91)]);
+        OcrCandidates: [new OcrCandidate("running", 0.91)],
+        ContextText: "The hero is running toward the gate.");
 
     recorder.Record(record);
 
@@ -123,6 +124,7 @@ static void RecorderWritesJsonlWithScreenshotAndSelection()
     AssertEqual("running", doc.RootElement.GetProperty("recognizedText").GetString());
     AssertEqual("run", doc.RootElement.GetProperty("lemma").GetString());
     AssertEqual(10, doc.RootElement.GetProperty("selection").GetProperty("x").GetInt32());
+    AssertEqual("The hero is running toward the gate.", doc.RootElement.GetProperty("contextText").GetString());
     AssertTrue(
         doc.RootElement.GetProperty("screenshotPath").GetString()!.EndsWith("sample.png", StringComparison.Ordinal),
         "expected screenshot path to be serialized");

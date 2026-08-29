@@ -53,7 +53,8 @@ try {
         $moveFlags = 0x0001 -bor 0x8000
         $toAbsolute = {
             param([int]$coordinate, [int]$size)
-            [uint32][Math]::Round([Math]::Clamp($coordinate, 0, $size - 1) * 65535.0 / ($size - 1))
+            $bounded = [Math]::Min([Math]::Max($coordinate, 0), $size - 1)
+            [uint32][Math]::Round($bounded * 65535.0 / ($size - 1))
         }
         [DesktopInput]::mouse_event($moveFlags, (& $toAbsolute $startX $screenWidth), (& $toAbsolute $startY $screenHeight), 0, [UIntPtr]::Zero)
         [DesktopInput]::mouse_event(0x0008, 0, 0, 0, [UIntPtr]::Zero)

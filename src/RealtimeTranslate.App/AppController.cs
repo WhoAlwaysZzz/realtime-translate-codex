@@ -406,7 +406,7 @@ public sealed class AppController : IDisposable
 
             if (string.IsNullOrWhiteSpace(recognizedText))
             {
-                var record = BuildRecord(selection, capture.ScreenshotPath, string.Empty, NormalizedWord.Empty, ["未识别到单词"], candidates);
+                var record = BuildRecord(selection, capture.ScreenshotPath, string.Empty, NormalizedWord.Empty, ["未识别到单词"], candidates, contextText);
                 SafeRecord(record);
                 _overlayPresenter.Show(new LookupPresentation("未识别到单词", "OCR returned no word", ["请试着框得更贴近单词"], "请试着框得更贴近单词", 0, IsError: true));
                 return;
@@ -444,7 +444,7 @@ public sealed class AppController : IDisposable
                 FrequencyBand: lookup.FrequencyBand,
                 IsContextAligned: ranking.WasContextAligned);
 
-            SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates));
+            SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates, contextText));
             ShowAndRemember(presentation);
         }
         catch (Exception ex)
@@ -539,7 +539,8 @@ public sealed class AppController : IDisposable
         string recognizedText,
         NormalizedWord normalized,
         IReadOnlyList<string> definitions,
-        IReadOnlyList<OcrCandidate> candidates)
+        IReadOnlyList<OcrCandidate> candidates,
+        string contextText = "")
     {
         return new LookupRecord(
             DateTimeOffset.Now,
@@ -549,7 +550,8 @@ public sealed class AppController : IDisposable
             definitions,
             selection,
             screenshotPath,
-            candidates);
+            candidates,
+            contextText);
     }
 
     private void SafeRecord(LookupRecord record)

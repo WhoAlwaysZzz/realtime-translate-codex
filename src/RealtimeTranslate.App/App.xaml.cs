@@ -122,7 +122,8 @@ public partial class App : System.Windows.Application
             root.TryGetProperty("definitions", out var defs) ? defs.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray() : [],
             new ScreenSelection(s.GetProperty("x").GetInt32(), s.GetProperty("y").GetInt32(), s.GetProperty("width").GetInt32(), s.GetProperty("height").GetInt32()),
             path.GetString()!,
-            []);
+            [],
+            root.TryGetProperty("contextText", out var context) ? context.GetString() ?? string.Empty : string.Empty);
     }
 
     protected override void OnExit(ExitEventArgs e)

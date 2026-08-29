@@ -27,8 +27,10 @@ if ($ReplayTimeoutSeconds -lt 1) { throw 'ReplayTimeoutSeconds must be positive.
 if ($MaxRunSeconds -lt 0) { throw 'MaxRunSeconds must be zero (unbounded) or positive.' }
 $expectedByIndex = @{}
 if ($ExpectedManifestPath -and (Test-Path $ExpectedManifestPath)) {
-    $manifest = @(Get-Content -Encoding utf8 $ExpectedManifestPath | ConvertFrom-Json)
-    foreach ($entry in $manifest) {
+    # Parse the complete JSON document first. Piping line-by-line can wrap a
+    # top-level JSON array as a nested Object[] on some PowerShell versions.
+    $manifest = Get-Content -Raw -Encoding utf8 $ExpectedManifestPath | ConvertFrom-Json
+    foreach ($entry in @($manifest)) {
         if ($null -eq $entry.index -or [string]::IsNullOrWhiteSpace([string]$entry.expectedText)) { throw "Expected manifest entries require index and expectedText: $ExpectedManifestPath" }
         $expectedByIndex[[int]$entry.index] = $entry
     }
