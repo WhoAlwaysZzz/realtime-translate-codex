@@ -3,6 +3,7 @@ param(
     [int]$StartIndex = 0,
     [int]$DelayMilliseconds = 250,
     [int]$ReplaySettleMilliseconds = 1000,
+    [string]$SummaryPath,
     [switch]$Stratified
 )
 
@@ -95,3 +96,28 @@ $lookupSuccess = @($results | Where-Object { $_.FoundDefinition }).Count
 $regressions = @($results | Where-Object Diagnostic -eq 'OCR regression').Count
 $recoveries = @($results | Where-Object Diagnostic -eq 'OCR recovery').Count
 "Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_failures=$(@($results | Where-Object { $_.ExitCode -ne 0 }).Count)"
+
+if ($SummaryPath) {
+    $summary = [pscustomobject]@{
+        GeneratedAt = (Get-Date).ToUniversalTime().ToString('o')
+        StartIndex = $StartIndex
+        RequestedSamples = $SampleCount
+        ActualSamples = $results.Count
+        OcrNonEmpty = $ocrSuccess
+        DictionaryFound = $lookupSuccess
+        OcrRegressions = $regressions
+        OcrRecoveries = $recoveries
+        ReplayFailures = @($results | Where-Object { $_.ExitCode -ne 0 }).Count
+        Diagnostics = @($results | Group-Object Diagnostic | ForEach-Object {
+            [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
+        })
+        InputQuality = @($results | Group-Object SelectionQuality | ForEach-Object {
+            [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
+        })
+        Results = @($results)
+    }
+    $summaryDirectory = Split-Path -Parent $SummaryPath
+    if ($summaryDirectory) { New-Item -ItemType Directory -Force -Path $summaryDirectory | Out-Null }
+    $summary | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 $SummaryPath
+    "Summary JSON: $SummaryPath"
+}
