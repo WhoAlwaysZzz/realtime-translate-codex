@@ -10,7 +10,7 @@ namespace RealtimeTranslate.App.Capture;
 public sealed class ReplayScreenshotService
 {
     private const int CropPaddingPixels = 16;
-    private const int ContextHorizontalPaddingPixels = 420;
+    private const int ContextHorizontalPaddingPixels = 800;
     private const int ContextVerticalPaddingPixels = 180;
 
     public Task<CapturedSelection> CaptureAsync(
