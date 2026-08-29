@@ -1,6 +1,7 @@
 param(
     [int]$TimeoutSeconds = 25,
-    [int]$SettleMilliseconds = 2500
+    [int]$SettleMilliseconds = 2500,
+    [int]$Attempts = 3
 )
 
 $ErrorActionPreference = 'Stop'
@@ -16,10 +17,8 @@ public static class DesktopInput {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
-  [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
-  [StructLayout(LayoutKind.Sequential)] public struct INPUT { public uint type; public MOUSEINPUT mi; }
-  [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public UIntPtr dwExtraInfo; }
-  public static void Mouse(uint flags, int dx = 0, int dy = 0) { var input = new INPUT { type = 0, mi = new MOUSEINPUT { dx = dx, dy = dy, dwFlags = flags } }; if (SendInput(1, new[] { input }, Marshal.SizeOf<INPUT>()) != 1) throw new System.ComponentModel.Win32Exception(); }
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
+  [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
 }
 '@
@@ -35,25 +34,44 @@ try {
         if ($candidate) { $handle = $candidate.MainWindowHandle }
     }
     if ($handle -eq [IntPtr]::Zero) { throw 'Desktop test host window did not appear before timeout.' }
+    # A visible window can precede completion of application startup; allow the
+    # production low-level hook to attach before injecting the gesture.
+    Start-Sleep -Milliseconds 750
     $rect = New-Object DesktopInput+RECT
     if (![DesktopInput]::GetWindowRect($handle, [ref]$rect)) { throw 'Unable to read host window bounds.' }
     $startX = [int](($rect.Left + $rect.Right) / 2 - 180)
     $startY = [int](($rect.Top + $rect.Bottom) / 2)
     $endX = $startX + 360
     $endY = $startY + 120
-    [DesktopInput]::SetCursorPos($startX, $startY) | Out-Null
-    [DesktopInput]::Mouse(0x0008)
-    Start-Sleep -Milliseconds 300
-    [DesktopInput]::Mouse(0x0001, $endX - $startX, $endY - $startY)
-    Start-Sleep -Milliseconds 300
-    [DesktopInput]::Mouse(0x0010)
-    Start-Sleep -Milliseconds $SettleMilliseconds
-    $lines = if (Test-Path $records) { @(Get-Content -Encoding utf8 $records) } else { @() }
-    if ($lines.Count -le $before) {
+    $record = $null
+    for ($attempt = 1; $attempt -le $Attempts -and $null -eq $record; $attempt++) {
+        $screenWidth = [DesktopInput]::GetSystemMetrics(0)
+        $screenHeight = [DesktopInput]::GetSystemMetrics(1)
+        $moveFlags = 0x0001 -bor 0x8000
+        $toAbsolute = {
+            param([int]$coordinate, [int]$size)
+            [uint32][Math]::Round([Math]::Clamp($coordinate, 0, $size - 1) * 65535.0 / ($size - 1))
+        }
+        [DesktopInput]::mouse_event($moveFlags, (& $toAbsolute $startX $screenWidth), (& $toAbsolute $startY $screenHeight), 0, [UIntPtr]::Zero)
+        [DesktopInput]::mouse_event(0x0008, 0, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds 250
+        foreach ($step in 1..24) {
+            $x = $startX + [int](($endX - $startX) * $step / 24)
+            $y = $startY + [int](($endY - $startY) * $step / 24)
+            [DesktopInput]::mouse_event($moveFlags, (& $toAbsolute $x $screenWidth), (& $toAbsolute $y $screenHeight), 0, [UIntPtr]::Zero)
+            Start-Sleep -Milliseconds 12
+        }
+        Start-Sleep -Milliseconds 250
+        [DesktopInput]::mouse_event(0x0010, 0, 0, 0, [UIntPtr]::Zero)
+        Start-Sleep -Milliseconds $SettleMilliseconds
+        $lines = if (Test-Path $records) { @(Get-Content -Encoding utf8 $records) } else { @() }
+        if ($lines.Count -gt $before) { $record = $lines[-1] | ConvertFrom-Json }
+    }
+    if ($null -eq $record) {
+        $lines = if (Test-Path $records) { @(Get-Content -Encoding utf8 $records) } else { @() }
         [pscustomobject]@{ WindowHandle = $handle; RecordCountBefore = $before; RecordCountAfter = $lines.Count; Result = 'no-record' } | Format-List
         throw "Right-drag completed but no lookup record was appended (before=$before after=$($lines.Count)). Check that the process owns an interactive desktop hook."
     }
-    $record = $lines[-1] | ConvertFrom-Json
     $validSelection = $record.selection.width -gt 0 -and $record.selection.height -gt 0
     $hasScreenshot = ![string]::IsNullOrWhiteSpace($record.screenshotPath) -and (Test-Path $record.screenshotPath)
     $hasDefinition = @($record.definitions | Where-Object { $_ -and $_ -notmatch '未识别|未找到|失败' }).Count -gt 0

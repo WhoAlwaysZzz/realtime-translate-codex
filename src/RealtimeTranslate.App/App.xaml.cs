@@ -68,6 +68,8 @@ public partial class App : System.Windows.Application
                 var host = new MainWindow(isDesktopTestHost: true);
                 host.Show();
                 host.Activate();
+                host.UpdateLayout();
+                host.Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Render, new Action(() => { }));
             }
 
             if (replayMode)

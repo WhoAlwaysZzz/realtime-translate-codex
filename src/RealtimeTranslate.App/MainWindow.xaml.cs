@@ -22,15 +22,10 @@ public partial class MainWindow : Window
         if (isDesktopTestHost)
         {
             Title = "Realtime Translate Codex · Desktop Test Host";
-            Content = new TextBlock
-            {
-                Text = "Desktop verification host\nRIGHT DRAG across: shelter   companion   discover\n to exercise OCR and lookup.",
-                FontSize = 28,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(48),
-                VerticalAlignment = System.Windows.VerticalAlignment.Center,
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
-            };
+            DesktopTestText.Visibility = Visibility.Visible;
+            return;
         }
+
+        DesktopTestText.Visibility = Visibility.Collapsed;
     }
 }
