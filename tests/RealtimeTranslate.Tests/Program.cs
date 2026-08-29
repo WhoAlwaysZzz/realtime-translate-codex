@@ -331,6 +331,14 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(frail.IsConfident, "appositive adjective context should be confidently ranked");
     AssertEqual("脆弱的", frail.PrimaryDefinition);
 
+    var staunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住", "adj. 忠实"], [
+        new DictionarySense("v", "止住", ["stop or check the flow of blood" ]),
+        new DictionarySense("adj", "忠实", ["loyal and committed" ]),
+    ], 2);
+    var staunch = ranker.Rank(staunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
+    AssertTrue(staunch.IsConfident, "masked adjective context should be confidently ranked");
+    AssertEqual("忠实", staunch.PrimaryDefinition);
+
     var unknown = ranker.Rank(lookup, "bark", string.Empty);
     AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
     AssertTrue(!unknown.WasContextAligned, "missing context must not be marked as aligned");

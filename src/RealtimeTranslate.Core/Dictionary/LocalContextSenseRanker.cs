@@ -17,6 +17,17 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         "to", "can", "could", "may", "might", "must", "shall", "should", "will", "would",
     };
 
+    // When the selected word is masked out of the OCR context, a nearby noun
+    // can still reveal an attributive adjective use (for example,
+    // "staunch supporter"). Keep this list deliberately small and concrete so
+    // it does not turn every noun-heavy sentence into an adjective guess.
+    private static readonly HashSet<string> AdjectiveHeadNouns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ally", "believer", "champion", "defender", "enemy", "fan", "friend",
+        "leader", "opponent", "supporter", "advocate",
+        "critic", "follower", "member", "partner", "soldier", "scholar",
+    };
+
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)
     {
         var senses = lookup.Senses ?? [];
@@ -87,6 +98,12 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             {
                 score += 5;
             }
+        }
+
+        if (sense.PartOfSpeech is "adj" or "a"
+            && contextTokens.Any(AdjectiveHeadNouns.Contains))
+        {
+            score += 3;
         }
 
         var definitionTokens = sense.EnglishDefinitions.SelectMany(Tokens).ToHashSet(StringComparer.OrdinalIgnoreCase);
