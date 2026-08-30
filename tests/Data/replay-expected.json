@@ -17,6 +17,7 @@
   { "index": 1029, "expectedText": "limp", "expectedSense": "无力的" },
   { "index": 1030, "expectedText": "attendant", "expectedSense": "侍者" },
   { "index": 1090, "expectedText": "concealed", "expectedSense": "隐匿" },
+  { "index": 1122, "expectedText": "shelter", "expectedOutcome": "abstain" },
   { "index": 1123, "expectedText": "bark", "expectedOutcome": "abstain" },
   { "index": 1127, "expectedText": "bark", "expectedSense": "吠" }
 ]
