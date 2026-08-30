@@ -25,7 +25,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
     {
         "ally", "believer", "champion", "defender", "enemy", "fan", "friend",
         "leader", "opponent", "supporter", "advocate",
-        "critic", "follower", "member", "partner", "soldier", "scholar",
+        "critic", "follower", "member", "partner", "soldier", "soldiers", "body", "bodies", "scholar",
     };
 
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)

@@ -1,0 +1,58 @@
+{
+  "GeneratedAt": "2026-08-30T00:50:49.7246539Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 1,
+  "MaxRunSeconds": 0,
+  "CandidateManifestPath": "",
+  "CandidatePoolCount": 1130,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 1,
+  "DictionaryFound": 1,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 1,
+  "OcrExact": 1,
+  "Top1SenseLabeled": 1,
+  "Top1Sense": 1,
+  "ContextLabeled": 1,
+  "ContextTop1Sense": 1,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 1
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "text-like",
+      "Count": 1
+    }
+  ],
+  "Results": [
+    {
+      "Index": 1029,
+      "SourceWord": "limp",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "limp",
+      "ContextText": "The soldiers collapse, their bodies falling among weeds.",
+      "ContextAvailable": true,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 8829,
+      "ContrastRange": 208,
+      "EdgeDensity": 0.0865,
+      "GreenRatio": 0.0,
+      "ContentClass": "text-like",
+      "FoundDefinition": true,
+      "ExpectedText": "limp",
+      "OcrExact": true,
+      "ExpectedSense": "无力的",
+      "Top1Sense": true,
+      "Diagnostic": "ok"
+    }
+  ]
+}
