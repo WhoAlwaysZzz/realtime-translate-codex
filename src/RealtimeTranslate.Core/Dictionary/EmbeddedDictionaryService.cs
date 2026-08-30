@@ -1,4 +1,5 @@
 using RealtimeTranslate.Core.Models;
+using System.Text.RegularExpressions;
 
 namespace RealtimeTranslate.Core.Dictionary;
 
@@ -29,12 +30,32 @@ public sealed class EmbeddedDictionaryService : IDictionaryService
         {
             if (_entries.TryGetValue(candidate, out var definitions))
             {
-                return new DictionaryLookupResult(true, candidate, definitions);
+                var senses = ParseSenses(definitions);
+                return new DictionaryLookupResult(true, candidate, definitions, senses);
             }
         }
 
         var fallback = string.IsNullOrWhiteSpace(word.Lemma) ? word.DisplayWord : word.Lemma;
         return DictionaryLookupResult.NotFound(fallback);
+    }
+
+    private static IReadOnlyList<DictionarySense> ParseSenses(IEnumerable<string> definitions)
+    {
+        var senses = definitions
+            .SelectMany(definition => Regex.Split(definition, @"(?=(?:n|v|vi|vt|a|adj|adv|prep|conj)\.\s)", RegexOptions.IgnoreCase))
+            .Select(definition => definition.Trim(' ', ';', ',', '；', '，'))
+            .Where(definition => definition.Length > 0)
+            .Select(definition =>
+            {
+                var match = Regex.Match(definition, @"^(?<pos>n|v|vi|vt|a|adj|adv|prep|conj)\.\s*(?<meaning>.+)$", RegexOptions.IgnoreCase);
+                return match.Success
+                    ? new DictionarySense(match.Groups["pos"].Value.ToLowerInvariant(), match.Groups["meaning"].Value, [], [])
+                    : null;
+            })
+            .Where(sense => sense is not null)
+            .Cast<DictionarySense>()
+            .ToArray();
+        return senses;
     }
 
     private static Dictionary<string, string[]> CreateSeedEntries()
