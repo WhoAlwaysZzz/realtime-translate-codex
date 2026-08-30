@@ -167,7 +167,10 @@ $results = @(foreach ($index in $indices) {
     $abstentionExpected = $expected -and (([string]$expected.expectedOutcome).ToLowerInvariant() -eq 'abstain')
     $abstained = $null
     if ($abstentionExpected) {
-        $abstained = (($primaryDefinition -match '  ') -or ([string]$definitionValues[0] -match '  '))
+        # The card's explicit uncertainty prefix is the product behavior under
+        # review.  Whitespace in a flattened definition is only formatting and
+        # must never be treated as evidence that the card honestly abstained.
+        $abstained = $primaryDefinition.StartsWith('无法确定：', [StringComparison]::Ordinal)
     }
     [pscustomobject]@{
         Index = $index
