@@ -175,6 +175,15 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             ("staunch", "adj") when normalizedContext.Contains("supporter") => "忠实的",
             ("limp", "adj") when normalizedContext.Contains("bodies") => "无力的",
             ("exquisite", "adj") when normalizedContext.Contains("brooch") => "精致的",
+            // Keep the first screen readable for reviewed single-sense game
+            // samples whose dictionary gloss contains a long synonym list.
+            ("sarcasm", "n") => "讽刺",
+            ("fortress", "n") => "城堡",
+            ("burden", "n") => "负担",
+            ("calamity", "n") => "灾难",
+            ("neglected", "adj") => "被忽视的",
+            ("concealed", "adj") => "隐匿的",
+            ("hopscotch", "n") => "跳房子游戏",
             _ => sense.ShortDefinition,
         };
     }

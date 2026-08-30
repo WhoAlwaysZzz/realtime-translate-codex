@@ -363,6 +363,21 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var conciseStaunch = ranker.Rank(richStaunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
     AssertEqual("本句中，staunch作形容词，指“忠实的”。", conciseStaunch.PrimaryDefinition);
 
+    var conciseReviewed = new (string Word, string Pos, string Definition, string Expected)[]
+    {
+        ("fortress", "n", "城堡、要塞", "城堡"),
+        ("burden", "n", "负担、重载、担子", "负担"),
+        ("sarcasm", "n", "挖苦、讽刺、讽刺话", "讽刺"),
+    };
+    foreach (var sample in conciseReviewed)
+    {
+        var reviewedLookup = new DictionaryLookupResult(true, sample.Word, [$"{sample.Pos}. {sample.Definition}"], [
+            new DictionarySense(sample.Pos, sample.Definition, ["reviewed game sense"]),
+        ], 2);
+        var reviewed = ranker.Rank(reviewedLookup, sample.Word, "The surrounding scene provides the word.");
+        AssertEqual($"本句中，{sample.Word}作名词，指“{sample.Expected}”。", reviewed.PrimaryDefinition);
+    }
+
     var parrot = ranker.Rank(lookup, "bark", "Marcus Gosh, she's babbling like a");
     AssertTrue(parrot.IsConfident, "a masked noun frame should select the noun sense");
     AssertEqual("本句中，bark作名词，指“树皮”。", parrot.PrimaryDefinition);
