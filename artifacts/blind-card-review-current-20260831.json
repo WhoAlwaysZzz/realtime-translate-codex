@@ -1,6 +1,6 @@
 {
-  "GeneratedAt": "2026-08-30T18:58:37.1070184Z",
-  "SourceSummaryPath": "D:\\Projects\\Code\\realtime-translate-codex\\artifacts\\blind-review-current-20260831.json",
+  "GeneratedAt": "2026-08-30T19:26:45.9697632Z",
+  "SourceSummaryPath": "D:\\Projects\\Code\\realtime-translate-codex\\artifacts\\blind-review-source-current-20260831.json",
   "ReviewInstructions": [
     "Read only the target word, available context, and actual first-screen meaning.",
     "For each card choose: understandable, unclear, or should-abstain.",
@@ -22,7 +22,7 @@
       "SourceIndex": 751,
       "TargetWord": "fortress.",
       "Context": "Finally, he is back in his",
-      "FirstScreenMeaning": "本句中，fortress作名词，指“城堡、要塞”。",
+      "FirstScreenMeaning": "本句中，fortress作名词，指“城堡”。",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
@@ -49,7 +49,7 @@
       "SourceIndex": 600,
       "TargetWord": "hopscotch",
       "Context": "It's a game of unlike any other.",
-      "FirstScreenMeaning": "本句中，hopscotch作名词，指“\"跳房子\"游戏”。",
+      "FirstScreenMeaning": "本句中，hopscotch作名词，指“跳房子游戏”。",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
@@ -58,7 +58,7 @@
       "SourceIndex": 700,
       "TargetWord": "calamity",
       "Context": "We've talked about the \"limit\" of things before rest team to quit experiment. Yc upon calamity on our people, for not",
-      "FirstScreenMeaning": "本句中，calamity作名词，指“灾难、不幸事件”。",
+      "FirstScreenMeaning": "本句中，calamity作名词，指“灾难”。",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
@@ -67,7 +67,7 @@
       "SourceIndex": 1027,
       "TargetWord": "crack",
       "Context": "Admiral Igor Our Second Lieutenant Lopera is a hot. I trained her to be nothing less. Yet, no soldier of Zeno would take pride in an execution.",
-      "FirstScreenMeaning": "本句中，crack作形容词，指“第一流的”。",
+      "FirstScreenMeaning": "无法确定：① n. 裂缝、爆裂声  ② v. (使)爆裂、(使)裂开、(使)发出爆裂声  ③ adj. 第一流的",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
@@ -94,7 +94,7 @@
       "SourceIndex": 1028,
       "TargetWord": "burden",
       "Context": "Admiral Igor alls on me. This was my fault,",
-      "FirstScreenMeaning": "本句中，burden作名词，指“负担、重载、担子”。",
+      "FirstScreenMeaning": "本句中，burden作名词，指“负担”。",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
@@ -130,7 +130,7 @@
       "SourceIndex": 187,
       "TargetWord": "sarcasm.",
       "Context": "Her tone belies a hint of",
-      "FirstScreenMeaning": "本句中，sarcasm作名词，指“挖苦、讽刺、讽刺话”。",
+      "FirstScreenMeaning": "本句中，sarcasm作名词，指“讽刺”。",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
@@ -157,7 +157,7 @@
       "SourceIndex": 657,
       "TargetWord": "-neglected",
       "Context": "888 The long- uestions have created a cloud of dou now, boulder fate is falling on us, and we are teeter",
-      "FirstScreenMeaning": "本句中，neglected作形容词，指“被忽视的、未被好好照管的”。",
+      "FirstScreenMeaning": "本句中，neglected作形容词，指“被忽视的”。",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
@@ -166,7 +166,7 @@
       "SourceIndex": 1090,
       "TargetWord": "concealed",
       "Context": "hibition, I felt a familiar afflatus. It was d the traces of concealment. in",
-      "FirstScreenMeaning": "本句中，concealed作形容词，指“隐蔽的、隐匿的”。",
+      "FirstScreenMeaning": "本句中，concealed作形容词，指“隐匿的”。",
       "ReviewerDecision": "",
       "ReviewerRationale": ""
     },
