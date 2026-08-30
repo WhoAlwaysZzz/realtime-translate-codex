@@ -345,6 +345,10 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(staunch.IsConfident, "masked adjective context should be confidently ranked");
     AssertEqual("本句中，staunch作形容词，指“忠实的”。", staunch.PrimaryDefinition);
 
+    var genericSoldier = ranker.Rank(staunchLookup, "staunch", "No soldier of Zeno would take pride in an execution.");
+    AssertTrue(!genericSoldier.IsConfident, "an unrelated generic soldier must not force an adjective sense");
+    AssertTrue(genericSoldier.PrimaryDefinition.StartsWith("无法确定：", StringComparison.Ordinal), "generic soldier context should explicitly abstain");
+
     var richBarkLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠、叫骂、喊出、剥树皮"], [
         new DictionarySense("n", "树皮、吠声", ["the sound made by a dog", "tough protective covering of trees"]),
         new DictionarySense("v", "吠、叫骂、喊出、剥树皮", ["make barking sounds"], ["The dogs barked at the stranger"]),
