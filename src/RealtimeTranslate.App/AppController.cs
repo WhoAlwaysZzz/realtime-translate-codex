@@ -444,7 +444,7 @@ public sealed class AppController : IDisposable
                 FrequencyBand: lookup.FrequencyBand,
                 IsContextAligned: ranking.WasContextAligned);
 
-            SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates, contextText));
+            SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates, contextText, primaryDefinition));
             ShowAndRemember(presentation);
         }
         catch (Exception ex)
@@ -540,7 +540,8 @@ public sealed class AppController : IDisposable
         NormalizedWord normalized,
         IReadOnlyList<string> definitions,
         IReadOnlyList<OcrCandidate> candidates,
-        string contextText = "")
+        string contextText = "",
+        string primaryDefinition = "")
     {
         return new LookupRecord(
             DateTimeOffset.Now,
@@ -551,7 +552,8 @@ public sealed class AppController : IDisposable
             selection,
             screenshotPath,
             candidates,
-            contextText);
+            contextText,
+            primaryDefinition);
     }
 
     private void SafeRecord(LookupRecord record)

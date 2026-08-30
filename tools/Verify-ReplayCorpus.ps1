@@ -150,6 +150,7 @@ $results = @(foreach ($index in $indices) {
     $replayHasOcr = ![string]::IsNullOrWhiteSpace($replayedText)
     $replayedContext = if ($newRecord -and $newRecord.PSObject.Properties.Name -contains 'contextText') { [string]$newRecord.contextText } else { '' }
     $contextHasText = ![string]::IsNullOrWhiteSpace($replayedContext)
+    $primaryDefinition = if ($newRecord -and $newRecord.PSObject.Properties.Name -contains 'primaryDefinition') { [string]$newRecord.primaryDefinition } else { '' }
     $expected = $expectedByIndex[[int]$index]
     $normalize = { param($value) (([string]$value).ToLowerInvariant() -replace '[^a-z0-9]+', '') }
     $ocrExact = if ($expected) { (&$normalize $replayedText) -eq (&$normalize $expected.expectedText) } else { $null }
@@ -160,6 +161,11 @@ $results = @(foreach ($index in $indices) {
     $top1Sense = if ($expected -and $expected.expectedSense) {
         $hasUsableDefinition -and (([string]$definitionValues[0]).ToLowerInvariant().Contains(([string]$expected.expectedSense).ToLowerInvariant()))
     } else { $null }
+    $abstentionExpected = $expected -and (([string]$expected.expectedOutcome).ToLowerInvariant() -eq 'abstain')
+    $abstained = $null
+    if ($abstentionExpected) {
+        $abstained = (($primaryDefinition -match '  ') -or ([string]$definitionValues[0] -match '  '))
+    }
     [pscustomobject]@{
         Index = $index
         SourceWord = $sourceText
@@ -180,6 +186,9 @@ $results = @(foreach ($index in $indices) {
         OcrExact = $ocrExact
         ExpectedSense = if ($expected) { [string]$expected.expectedSense } else { $null }
         Top1Sense = $top1Sense
+        ExpectedOutcome = if ($expected) { [string]$expected.expectedOutcome } else { $null }
+        PrimaryDefinition = $primaryDefinition
+        Abstained = $abstained
         Diagnostic = if ($replayTimedOut) { 'replay timeout' } elseif (!$newRecord) { 'no replay record' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'invalid') { 'historical empty: invalid selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'tiny') { 'historical empty: tiny selection' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -eq 'low-information') { 'historical empty: low contrast' } elseif (!$sourceHasOcr -and !$replayHasOcr -and $quality.ContentClass -in @('likely-terminal','likely-hud')) { "historical empty: $($quality.ContentClass)" } elseif (!$sourceHasOcr -and !$replayHasOcr) { 'historical OCR empty: input quality unknown' } elseif ($sourceHasOcr -and !$replayHasOcr) { 'OCR regression' } elseif (!$hasUsableDefinition) { 'no definition' } else { 'ok' }
     }
 })
@@ -197,9 +206,12 @@ $senseLabeled = @($results | Where-Object { $null -ne $_.Top1Sense })
 $top1SenseCount = @($senseLabeled | Where-Object Top1Sense).Count
 $contextLabeled = @($senseLabeled | Where-Object ContextAvailable)
 $contextTop1SenseCount = @($contextLabeled | Where-Object Top1Sense).Count
+$abstentionLabeled = @($results | Where-Object { $null -ne $_.Abstained })
+$abstentionCount = @($abstentionLabeled | Where-Object Abstained).Count
 "Summary: samples=$($results.Count); ocr_nonempty=$ocrSuccess; dictionary_found=$lookupSuccess; ocr_regressions=$regressions; ocr_recoveries=$recoveries; replay_timeouts=$replayTimeouts; replay_failures=$replayFailures; run_time_limit_reached=$runTimeLimitReached"
 if ($labeled.Count -gt 0) { "Labeled accuracy: ocr_exact=$ocrExactCount/$($labeled.Count); top1_sense=$top1SenseCount/$($senseLabeled.Count)" }
 if ($senseLabeled.Count -gt 0) { "Context coverage: context_available=$($contextLabeled.Count)/$($senseLabeled.Count); context_top1_sense=$contextTop1SenseCount/$($contextLabeled.Count)" }
+if ($abstentionLabeled.Count -gt 0) { "Abstention accuracy: abstained=$abstentionCount/$($abstentionLabeled.Count)" }
 
 if ($SummaryPath) {
     $summary = [pscustomobject]@{
@@ -223,6 +235,8 @@ if ($SummaryPath) {
         Top1Sense = $top1SenseCount
         ContextLabeled = $contextLabeled.Count
         ContextTop1Sense = $contextTop1SenseCount
+        AbstentionLabeled = $abstentionLabeled.Count
+        Abstained = $abstentionCount
         Diagnostics = @($results | Group-Object Diagnostic | ForEach-Object {
             [pscustomobject]@{ Name = $_.Name; Count = $_.Count }
         })

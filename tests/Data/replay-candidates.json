@@ -1,4 +1,4 @@
 {
   "description": "Human-reviewed game-scene candidates with usable selection bounds and replay evidence; excludes the known terminal/editor capture at archive index 100 and other low-information candidates.",
-  "indices": [187, 200, 281, 500, 563, 600, 657, 700, 751, 799, 845, 939, 1027, 1028, 1029, 1030, 1090, 1127]
+  "indices": [187, 200, 281, 500, 563, 600, 657, 700, 751, 799, 845, 939, 1027, 1028, 1029, 1030, 1090, 1123, 1127]
 }

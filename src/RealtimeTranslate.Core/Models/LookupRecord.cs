@@ -9,4 +9,5 @@ public sealed record LookupRecord(
     ScreenSelection Selection,
     string ScreenshotPath,
     IReadOnlyList<OcrCandidate> OcrCandidates,
-    string ContextText = "");
+    string ContextText = "",
+    string PrimaryDefinition = "");
