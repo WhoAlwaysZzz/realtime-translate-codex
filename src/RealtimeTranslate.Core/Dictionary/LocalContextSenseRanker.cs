@@ -39,7 +39,11 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
 
         if (senses.Count == 1)
         {
-            return new SenseRankingResult(senses[0].ShortDefinition, [Format(senses[0])], true, senses[0]);
+            return new SenseRankingResult(
+                DescribeInSentence(senses[0], targetWord),
+                [Format(senses[0])],
+                true,
+                senses[0]);
         }
 
         var contextTokens = Tokens(context).ToHashSet(StringComparer.OrdinalIgnoreCase);

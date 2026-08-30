@@ -1,0 +1,63 @@
+{
+  "GeneratedAt": "2026-08-30T17:46:32.4117637Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 1,
+  "MaxRunSeconds": 0,
+  "CandidateManifestPath": "",
+  "CandidatePoolCount": 1131,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 1,
+  "DictionaryFound": 1,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 1,
+  "OcrExact": 1,
+  "Top1SenseLabeled": 1,
+  "Top1Sense": 1,
+  "ContextLabeled": 1,
+  "ContextTop1Sense": 1,
+  "AbstentionLabeled": 0,
+  "Abstained": 0,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 1
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "mixed-ui",
+      "Count": 1
+    }
+  ],
+  "Results": [
+    {
+      "Index": 700,
+      "SourceWord": "calamity",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "calamity",
+      "ContextText": "We've talked about the \"limit\" of things before rest team to quit experiment. Yc upon calamity on our people, for not",
+      "ContextAvailable": true,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 18382,
+      "ContrastRange": 209,
+      "EdgeDensity": 0.0747,
+      "GreenRatio": 0.0,
+      "ContentClass": "mixed-ui",
+      "FoundDefinition": true,
+      "ExpectedText": "calamity",
+      "OcrExact": true,
+      "ExpectedSense": "灾难",
+      "Top1Sense": true,
+      "ExpectedOutcome": "",
+      "PrimaryDefinition": "本句中，calamity作名词，指“灾难、不幸事件”。",
+      "Abstained": null,
+      "Diagnostic": "ok"
+    }
+  ]
+}

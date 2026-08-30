@@ -331,6 +331,12 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(frail.IsConfident, "appositive adjective context should be confidently ranked");
     AssertEqual("本句中，frail作形容词，指“脆弱的”。", frail.PrimaryDefinition);
 
+    var singleSense = new DictionaryLookupResult(true, "dwindle", ["v. 逐渐减少、缩小"], [
+        new DictionarySense("v", "逐渐减少、缩小", ["become smaller or lose substance"]),
+    ], 2);
+    var single = ranker.Rank(singleSense, "dwindle", "Their savings dwindled away.");
+    AssertEqual("本句中，dwindle作动词，指“逐渐减少、缩小”。", single.PrimaryDefinition);
+
     var staunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住", "adj. 忠实"], [
         new DictionarySense("v", "止住", ["stop or check the flow of blood" ]),
         new DictionarySense("adj", "忠实", ["loyal and committed" ]),
