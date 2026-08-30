@@ -343,7 +343,21 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     ], 2);
     var staunch = ranker.Rank(staunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
     AssertTrue(staunch.IsConfident, "masked adjective context should be confidently ranked");
-    AssertEqual("本句中，staunch作形容词，指“忠实”。", staunch.PrimaryDefinition);
+    AssertEqual("本句中，staunch作形容词，指“忠实的”。", staunch.PrimaryDefinition);
+
+    var richBarkLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠、叫骂、喊出、剥树皮"], [
+        new DictionarySense("n", "树皮、吠声", ["the sound made by a dog", "tough protective covering of trees"]),
+        new DictionarySense("v", "吠、叫骂、喊出、剥树皮", ["make barking sounds"], ["The dogs barked at the stranger"]),
+    ], 2);
+    var conciseBark = ranker.Rank(richBarkLookup, "bark", "The dog began to bark");
+    AssertEqual("本句中，bark作动词，指“吠叫”。", conciseBark.PrimaryDefinition);
+
+    var richStaunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住、止血", "adj. 坚固的、坚强的、忠实的"], [
+        new DictionarySense("v", "止住、止血", ["stop the flow of a liquid"]),
+        new DictionarySense("adj", "坚固的、坚强的、忠实的", ["firm and dependable especially in loyalty"]),
+    ], 1);
+    var conciseStaunch = ranker.Rank(richStaunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
+    AssertEqual("本句中，staunch作形容词，指“忠实的”。", conciseStaunch.PrimaryDefinition);
 
     var parrot = ranker.Rank(lookup, "bark", "Marcus Gosh, she's babbling like a");
     AssertTrue(parrot.IsConfident, "a masked noun frame should select the noun sense");

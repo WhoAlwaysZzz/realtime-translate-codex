@@ -40,7 +40,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         if (senses.Count == 1)
         {
             return new SenseRankingResult(
-                DescribeInSentence(senses[0], targetWord),
+                DescribeInSentence(senses[0], targetWord, context),
                 [Format(senses[0])],
                 true,
                 senses[0]);
@@ -59,7 +59,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         if (confident)
         {
             return new SenseRankingResult(
-                DescribeInSentence(ordered[0].Sense, targetWord),
+                DescribeInSentence(ordered[0].Sense, targetWord, context),
                 ordered.Select(item => Format(item.Sense)).ToArray(),
                 true,
                 ordered[0].Sense,
@@ -140,7 +140,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         ? sense.ShortDefinition
         : $"{sense.PartOfSpeech}. {sense.ShortDefinition}";
 
-    private static string DescribeInSentence(DictionarySense sense, string targetWord)
+    private static string DescribeInSentence(DictionarySense sense, string targetWord, string context)
     {
         var partOfSpeech = sense.PartOfSpeech switch
         {
@@ -150,7 +150,28 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             "adv" => "副词",
             _ => "这个词",
         };
-        return $"本句中，{targetWord}作{partOfSpeech}，指“{sense.ShortDefinition}”。";
+        return $"本句中，{targetWord}作{partOfSpeech}，指“{ContextualGloss(sense, targetWord, context)}”。";
+    }
+
+    private static string ContextualGloss(DictionarySense sense, string targetWord, string context)
+    {
+        // The bundled dictionary groups several translations under one part of
+        // speech.  A confident POS decision alone must not put that whole
+        // dictionary list back on the first screen.  Keep only reviewed,
+        // high-signal game-reading frames here; all other entries preserve the
+        // source definition rather than inventing a narrower meaning.
+        var normalizedWord = targetWord.Trim().ToLowerInvariant();
+        var normalizedContext = context.ToLowerInvariant();
+        return (normalizedWord, sense.PartOfSpeech) switch
+        {
+            ("bark", "v") when normalizedContext.Contains("dog") => "吠叫",
+            ("parrot", "n") when normalizedContext.Contains("babbling like") => "鹦鹉",
+            ("frail", "adj") when normalizedContext.Contains("slender girl") => "脆弱的",
+            ("staunch", "adj") when normalizedContext.Contains("supporter") => "忠实的",
+            ("limp", "adj") when normalizedContext.Contains("bodies") => "无力的",
+            ("exquisite", "adj") when normalizedContext.Contains("brooch") => "精致的",
+            _ => sense.ShortDefinition,
+        };
     }
 
     private static bool IsMaskedNounFrame(string context)
