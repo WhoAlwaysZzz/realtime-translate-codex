@@ -159,7 +159,10 @@ $results = @(foreach ($index in $indices) {
         $_ -and $_ -notmatch '未识别|未找到|失败'
     }).Count -gt 0
     $top1Sense = if ($expected -and $expected.expectedSense) {
-        $hasUsableDefinition -and (([string]$definitionValues[0]).ToLowerInvariant().Contains(([string]$expected.expectedSense).ToLowerInvariant()))
+        # A card that explicitly abstains is not a successful first-screen
+        # sense decision, even when one of its flattened candidates contains
+        # the expected translation. Count only a confident primary answer.
+        $hasUsableDefinition -and !$primaryDefinition.StartsWith('无法确定：', [StringComparison]::Ordinal) -and (([string]$definitionValues[0]).ToLowerInvariant().Contains(([string]$expected.expectedSense).ToLowerInvariant()))
     } else { $null }
     $abstentionExpected = $expected -and (([string]$expected.expectedOutcome).ToLowerInvariant() -eq 'abstain')
     $abstained = $null
