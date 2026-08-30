@@ -31,6 +31,10 @@ public partial class App : System.Windows.Application
         {
             var replayMode = e.Args.Length >= 2 && string.Equals(e.Args[0], "--replay", StringComparison.OrdinalIgnoreCase);
             var desktopTestHost = e.Args.Any(arg => string.Equals(arg, "--desktop-test-host", StringComparison.OrdinalIgnoreCase));
+            var replayOutputIndex = Array.FindIndex(e.Args, arg => string.Equals(arg, "--replay-output", StringComparison.OrdinalIgnoreCase));
+            var replayOutputRoot = replayOutputIndex >= 0 && replayOutputIndex + 1 < e.Args.Length
+                ? e.Args[replayOutputIndex + 1]
+                : Path.Combine(Path.GetTempPath(), "RealtimeTranslateCodex-replay");
             var settings = AppSettings.CreateDefault();
             var aiSettingsStore = new AiExplanationSettingsStore(Path.Combine(settings.ArchiveRoot, "ai-settings.json"));
             aiSettingsStore.EnsureTemplateExists();
@@ -57,7 +61,7 @@ public partial class App : System.Windows.Application
                 new OpenAiCompatibleTextExplanationService(new HttpClient(), aiOptions),
                 new JsonRecentLookupStore(Path.Combine(settings.ArchiveRoot, "records", "recent-lookups.json")),
                 replayMode
-                    ? new JsonlLookupRecorder(Path.Combine(Path.GetTempPath(), "RealtimeTranslateCodex-replay"))
+                    ? new JsonlLookupRecorder(replayOutputRoot)
                     : new JsonlLookupRecorder(settings.ArchiveRoot),
                 new JsonlTextExplanationRecorder(settings.ArchiveRoot),
                 new JsonWordQueryCounter(Path.Combine(settings.ArchiveRoot, "records", "query-counts.json")),

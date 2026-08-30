@@ -18,8 +18,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 $ExpectedManifestPath = if ($ExpectedManifestPath) { $ExpectedManifestPath } else { Join-Path $repo 'tests\Data\replay-expected.json' }
 $exe = Join-Path $repo 'src\RealtimeTranslate.App\bin\Debug\net8.0-windows10.0.19041.0\RealtimeTranslate.App.exe'
 $records = Join-Path $env:LOCALAPPDATA 'RealtimeTranslateCodex\records\lookups.jsonl'
-$outputRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'RealtimeTranslateCodex-replay'
-$outputRecords = Join-Path $outputRoot 'records\lookups.jsonl'
+$outputRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("RealtimeTranslateCodex-replay-" + [Guid]::NewGuid().ToString('N'))
 
 if (!(Test-Path $exe)) { throw "Built app not found: $exe" }
 if (!(Test-Path $records)) { throw "Lookup archive not found: $records" }
@@ -49,7 +48,7 @@ if ($CandidateManifestPath) {
     } | Select-Object -Unique)
 }
 
-New-Item -ItemType Directory -Force -Path (Split-Path $outputRecords) | Out-Null
+New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 
 $archive = @(Get-Content -Encoding utf8 $records | ForEach-Object {
     try { $_ | ConvertFrom-Json } catch { $null }
@@ -81,8 +80,11 @@ $results = @(foreach ($index in $indices) {
         break
     }
 
-    $before = if (Test-Path $outputRecords) { (Get-Content -Encoding utf8 $outputRecords).Count } else { 0 }
-    $process = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index, '--replay-delay-ms', $ReplaySettleMilliseconds) -PassThru
+    # Give every child its own record file as well as every verifier run its
+    # own root. This prevents a parallel verifier from shifting record order.
+    $processOutputRoot = Join-Path $outputRoot "sample-$index"
+    $processOutputRecords = Join-Path $processOutputRoot 'records\lookups.jsonl'
+    $process = Start-Process -FilePath $exe -ArgumentList @('--replay', $records, '--index', $index, '--replay-delay-ms', $ReplaySettleMilliseconds, '--replay-output', $processOutputRoot) -PassThru
     $remainingRunMilliseconds = if ($MaxRunSeconds -gt 0) {
         [Math]::Max(1, [int](($MaxRunSeconds - ((Get-Date) - $runStartedAt).TotalSeconds) * 1000))
     } else { [int]::MaxValue }
@@ -96,8 +98,24 @@ $results = @(foreach ($index in $indices) {
         }
     }
     Start-Sleep -Milliseconds $DelayMilliseconds
-    $lines = if (Test-Path $outputRecords) { @(Get-Content -Encoding utf8 $outputRecords) } else { @() }
-    $newRecord = if ($lines.Count -gt $before) { $lines[$before] | ConvertFrom-Json } else { $null }
+    # The replay app has exited, but Windows can expose the appended JSONL line
+    # just before its final bytes become readable.  Treat a partial line as not
+    # yet available instead of converting it into a false replay failure.
+    $newRecord = $null
+    $recordDeadline = (Get-Date).AddSeconds(30)
+    do {
+        if (Test-Path $processOutputRecords) {
+            try {
+                $newRecord = Get-Content -Raw -Encoding utf8 $processOutputRecords | ConvertFrom-Json
+            }
+            catch {
+                $newRecord = $null
+            }
+        }
+        if (!$newRecord -and (Get-Date) -lt $recordDeadline) {
+            Start-Sleep -Milliseconds 50
+        }
+    } while (!$newRecord -and (Get-Date) -lt $recordDeadline)
     $sourceText = [string]$archive[$index].recognizedText
     $replayedText = if ($newRecord) { [string]$newRecord.recognizedText } else { '' }
     $quality = [pscustomobject]@{ Screenshot = 'missing'; Selection = 'unknown'; CropPixels = 0; ContrastRange = 0; EdgeDensity = 0; GreenRatio = 0; ContentClass = 'unknown' }
@@ -162,11 +180,12 @@ $results = @(foreach ($index in $indices) {
     $hasUsableDefinition = $replayHasOcr -and @($definitionValues | Where-Object {
         $_ -and $_ -notmatch '未识别|未找到|失败'
     }).Count -gt 0
+    $abstentionPrefix = '无法仅凭这一句确定；可能是：'
     $top1Sense = if ($expected -and $expected.expectedSense) {
         # A card that explicitly abstains is not a successful first-screen
         # sense decision, even when one of its flattened candidates contains
         # the expected translation. Count only a confident primary answer.
-        $hasUsableDefinition -and !$primaryDefinition.StartsWith('无法确定：', [StringComparison]::Ordinal) -and (([string]$definitionValues[0]).ToLowerInvariant().Contains(([string]$expected.expectedSense).ToLowerInvariant()))
+        $hasUsableDefinition -and !$primaryDefinition.StartsWith($abstentionPrefix, [StringComparison]::Ordinal) -and (([string]$definitionValues[0]).ToLowerInvariant().Contains(([string]$expected.expectedSense).ToLowerInvariant()))
     } else { $null }
     $abstentionExpected = $expected -and (([string]$expected.expectedOutcome).ToLowerInvariant() -eq 'abstain')
     $abstained = $null
@@ -174,7 +193,7 @@ $results = @(foreach ($index in $indices) {
         # The card's explicit uncertainty prefix is the product behavior under
         # review.  Whitespace in a flattened definition is only formatting and
         # must never be treated as evidence that the card honestly abstained.
-        $abstained = $primaryDefinition.StartsWith('无法确定：', [StringComparison]::Ordinal)
+        $abstained = $primaryDefinition.StartsWith($abstentionPrefix, [StringComparison]::Ordinal)
     }
     [pscustomobject]@{
         Index = $index
