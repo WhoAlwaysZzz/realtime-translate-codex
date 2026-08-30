@@ -1,0 +1,10 @@
+# Agentic Loop Status
+
+Updated: 2026-08-31
+
+- Run: surfaced a previously hidden alternative on abstaining cards. `LocalContextSenseRanker` now shows at most three concise candidate senses instead of two. It still refuses to select a sense when the context is weak.
+- Why: real screenshot replay index 1027 recognizes `crack` exactly, and its structured local dictionary contains noun, verb, adjective “第一流的”, and adverb senses. The available OCR context does not safely prove the adjective sense, so the prior two-candidate abstention showed only noun and verb and concealed the relevant adjective possibility. Showing the first three candidates is a bounded, reversible improvement over either false certainty or a dictionary dump.
+- Verification: `dotnet build RealtimeTranslateCodex.sln --no-restore` completed with 0 warnings and 0 errors; the executable test suite passed 19/19, including a regression for weak `crack` context. A real Debug application replay of historical index 1027 exited 0, had exact OCR and a found local definition, and rendered `无法确定：① n. 裂缝、爆裂声  ② v. (使)爆裂、(使)裂开、(使)发出爆裂声  ③ adj. 第一流的`: `artifacts/abstention-three-candidates-1027-20260831.json`.
+- Existing corpus evidence: the preceding all-20 production replay has exact OCR 20/20, dictionary hits 20/20, and existing labeled abstentions 4/4 (`artifacts/generic-soldier-abstention-20260831.json`). This revision changes only the bounded candidate text on abstaining cards, not OCR, lookup, ranking confidence, or the abstention prefix.
+- Remaining blocker: the required independent human blind review is still incomplete. The current blind packet must be completed without consulting `tests/Data/replay-expected.json`; it must establish whether at least 16 of the 20 cards are directly understandable and whether the four ambiguity cases are honestly labelled. Do not create or modify `docs/agent-loop.accepted`.
+- Next: obtain and reconcile that human review. If it identifies an unclear card or inappropriate certainty, make that specific card behavior the next single content repair.

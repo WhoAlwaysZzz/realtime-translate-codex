@@ -378,6 +378,15 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(!ambiguous.IsConfident, "non-empty but unsupported context must not force a sense");
     AssertTrue(!ambiguous.WasContextAligned, "unsupported context must not be marked as aligned");
     AssertTrue(ambiguous.PrimaryDefinition.StartsWith("无法确定：", StringComparison.Ordinal), "unsupported context should show the abstention explanation");
+
+    var crackLookup = new DictionaryLookupResult(true, "crack", ["n. 裂缝", "v. 爆裂", "adj. 第一流的"], [
+        new DictionarySense("n", "裂缝", ["a narrow opening"]),
+        new DictionarySense("v", "爆裂", ["break suddenly"]),
+        new DictionarySense("adj", "第一流的", ["of the highest quality"]),
+    ], 2);
+    var crack = ranker.Rank(crackLookup, "crack", "No soldier of Zeno would take pride in an execution.");
+    AssertTrue(!crack.IsConfident, "unrelated context must not force crack's adjective sense");
+    AssertTrue(crack.PrimaryDefinition.Contains("③ adj. 第一流的", StringComparison.Ordinal), "an abstaining card should retain the third concise candidate");
 }
 
 static void RenderedCardUsesFrequencyAndShortUsageFallback()

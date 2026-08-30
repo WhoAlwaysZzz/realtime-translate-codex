@@ -66,7 +66,12 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
                 WasContextAligned: true);
         }
 
-        var candidates = string.Join("  ", senses.Take(2).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
+        // Preserve a small, useful spread of parts of speech on an abstaining
+        // card.  Two candidates can hide a legitimate third sense (for
+        // example, crack's adjective "first-rate" sense behind noun and verb
+        // entries), while more than three turns the first screen back into a
+        // dictionary dump.
+        var candidates = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
         var flat = $"无法确定：{candidates}";
         return new SenseRankingResult(flat, senses.Select(Format).ToArray(), false);
     }
