@@ -392,6 +392,18 @@ static void RenderedCardUsesFrequencyAndShortUsageFallback()
 
     var alignedLines = LookupCardTextFormatter.VisibleLines(presentation with { IsContextAligned = true });
     AssertEqual("整句句意对齐：已用于筛选", alignedLines[2]);
+
+    var crowded = presentation with
+    {
+        PrimaryDefinition = "本句中，dwindle作动词，指“逐渐减少、缩小”。",
+        WordBreakdown = "dwin-（减少）",
+        WordFamily = ["dwindled", "dwindling"],
+    };
+    var crowdedLines = LookupCardTextFormatter.VisibleLines(crowded);
+    AssertTrue(crowdedLines.Count <= 5, "first screen must contain at most five information blocks");
+    AssertTrue(crowdedLines.Contains("本句中，dwindle作动词，指“逐渐减少、缩小”。"), "sentence meaning must remain visible on crowded cards");
+    AssertTrue(crowdedLines.Contains("词基/构词  dwin-（减少）"), "breakdown should be the optional metadata block");
+    AssertTrue(!crowdedLines.Any(line => line.StartsWith("词族/词形", StringComparison.Ordinal)), "word family should yield to breakdown on first screen");
 }
 
 static void WordCardRegressionsRejectFalseFamilies()

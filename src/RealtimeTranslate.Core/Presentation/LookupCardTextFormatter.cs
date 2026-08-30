@@ -27,14 +27,33 @@ public static class LookupCardTextFormatter
 
     public static IReadOnlyList<string> VisibleLines(LookupPresentation presentation)
     {
-        return new[]
+        var core = new[]
         {
             $"{presentation.Title} {Frequency(presentation.FrequencyBand)}".Trim(),
             presentation.PrimaryDefinition,
             presentation.IsError ? string.Empty : ContextAlignment(presentation),
-            Breakdown(presentation),
-            Family(presentation),
-            Usage(presentation),
-        }.Where(line => line.Length > 0).ToArray();
+        }.Where(line => line.Length > 0).ToList();
+
+        // Keep the first screen compact: sentence meaning and usage outrank
+        // study metadata. Show at most one optional metadata block so the
+        // card never grows beyond five visible information blocks.
+        var metadata = Breakdown(presentation);
+        if (string.IsNullOrWhiteSpace(metadata))
+        {
+            metadata = Family(presentation);
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata))
+        {
+            core.Add(metadata);
+        }
+
+        var usage = Usage(presentation);
+        if (!string.IsNullOrWhiteSpace(usage))
+        {
+            core.Add(usage);
+        }
+
+        return core.Take(5).ToArray();
     }
 }
