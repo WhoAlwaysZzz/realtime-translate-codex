@@ -149,6 +149,10 @@ $results = @(foreach ($index in $indices) {
     $sourceHasOcr = ![string]::IsNullOrWhiteSpace($sourceText)
     $replayHasOcr = ![string]::IsNullOrWhiteSpace($replayedText)
     $replayedContext = if ($newRecord -and $newRecord.PSObject.Properties.Name -contains 'contextText') { [string]$newRecord.contextText } else { '' }
+    # DisplayWord is the normalized title that the overlay actually shows.
+    # Preserve it in the evidence summary so blind review does not present
+    # punctuation or OCR framing marks that the product removed before display.
+    $displayWord = if ($newRecord -and $newRecord.PSObject.Properties.Name -contains 'displayWord') { [string]$newRecord.displayWord } else { '' }
     $contextHasText = ![string]::IsNullOrWhiteSpace($replayedContext)
     $primaryDefinition = if ($newRecord -and $newRecord.PSObject.Properties.Name -contains 'primaryDefinition') { [string]$newRecord.primaryDefinition } else { '' }
     $expected = $expectedByIndex[[int]$index]
@@ -178,6 +182,7 @@ $results = @(foreach ($index in $indices) {
         ExitCode = if ($replayTimedOut) { $null } else { $process.ExitCode }
         ReplayTimedOut = $replayTimedOut
         RecognizedText = $replayedText
+        DisplayWord = $displayWord
         ContextText = $replayedContext
         ContextAvailable = $contextHasText
         Screenshot = $quality.Screenshot

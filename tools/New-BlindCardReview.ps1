@@ -31,7 +31,11 @@ $reviewCards = @($results |
         [pscustomobject]@{
             ReviewId = ('card-{0:D2}' -f $ordinal)
             SourceIndex = [int]$_.Index
-            TargetWord = [string]$_.RecognizedText
+            # The review packet must mirror the card the user reads. Prefer
+            # the normalized overlay title over raw OCR, which may retain
+            # punctuation or crop artefacts such as "fortress." or
+            # "-neglected". Older summaries fall back to the OCR text.
+            TargetWord = if ([string]::IsNullOrWhiteSpace([string]$_.DisplayWord)) { [string]$_.RecognizedText } else { [string]$_.DisplayWord }
             Context = if ([string]::IsNullOrWhiteSpace($context)) { '（本次未取得可用上下文）' } else { $context }
             FirstScreenMeaning = [string]$_.PrimaryDefinition
             ReviewerDecision = ''
