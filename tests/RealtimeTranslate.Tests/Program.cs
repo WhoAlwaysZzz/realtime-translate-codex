@@ -316,12 +316,12 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var dog = ranker.Rank(lookup, "bark", "The dog began to bark at the stranger.");
     AssertTrue(dog.IsConfident, "dog context should be confidently verbal");
     AssertTrue(dog.WasContextAligned, "dog context should be marked as aligned");
-    AssertEqual("吠叫", dog.PrimaryDefinition);
+    AssertEqual("本句中，bark作动词，指“吠叫”。", dog.PrimaryDefinition);
 
     var tree = ranker.Rank(lookup, "bark", "The bark protects the old tree.");
     AssertTrue(tree.IsConfident, "article and tree context should be confidently nominal");
     AssertTrue(tree.WasContextAligned, "tree context should be marked as aligned");
-    AssertEqual("树皮", tree.PrimaryDefinition);
+    AssertEqual("本句中，bark作名词，指“树皮”。", tree.PrimaryDefinition);
 
     var frailLookup = new DictionaryLookupResult(true, "frail", ["adj. 脆弱的", "n. 灯心草篓"], [
         new DictionarySense("adj", "脆弱的", ["physically weak"]),
@@ -329,7 +329,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     ], 2);
     var frail = ranker.Rank(frailLookup, "frail", "She looks at the frail, slender girl in front of her.");
     AssertTrue(frail.IsConfident, "appositive adjective context should be confidently ranked");
-    AssertEqual("脆弱的", frail.PrimaryDefinition);
+    AssertEqual("本句中，frail作形容词，指“脆弱的”。", frail.PrimaryDefinition);
 
     var staunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住", "adj. 忠实"], [
         new DictionarySense("v", "止住", ["stop or check the flow of blood" ]),
@@ -337,13 +337,23 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     ], 2);
     var staunch = ranker.Rank(staunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
     AssertTrue(staunch.IsConfident, "masked adjective context should be confidently ranked");
-    AssertEqual("忠实", staunch.PrimaryDefinition);
+    AssertEqual("本句中，staunch作形容词，指“忠实”。", staunch.PrimaryDefinition);
+
+    var parrot = ranker.Rank(lookup, "bark", "Marcus Gosh, she's babbling like a");
+    AssertTrue(parrot.IsConfident, "a masked noun frame should select the noun sense");
+    AssertEqual("本句中，bark作名词，指“树皮”。", parrot.PrimaryDefinition);
 
     var unknown = ranker.Rank(lookup, "bark", string.Empty);
     AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
     AssertTrue(!unknown.WasContextAligned, "missing context must not be marked as aligned");
+    AssertTrue(unknown.PrimaryDefinition.StartsWith("无法确定：", StringComparison.Ordinal), "ambiguous card should state that the sense cannot be determined");
     AssertTrue(unknown.PrimaryDefinition.Contains("① n. 树皮", StringComparison.Ordinal), "ambiguous card should flatten the first sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("② v. 吠叫", StringComparison.Ordinal), "ambiguous card should flatten the second sense");
+
+    var ambiguous = ranker.Rank(lookup, "bark", "They bark loudly.");
+    AssertTrue(!ambiguous.IsConfident, "non-empty but unsupported context must not force a sense");
+    AssertTrue(!ambiguous.WasContextAligned, "unsupported context must not be marked as aligned");
+    AssertTrue(ambiguous.PrimaryDefinition.StartsWith("无法确定：", StringComparison.Ordinal), "unsupported context should show the abstention explanation");
 }
 
 static void RenderedCardUsesFrequencyAndShortUsageFallback()

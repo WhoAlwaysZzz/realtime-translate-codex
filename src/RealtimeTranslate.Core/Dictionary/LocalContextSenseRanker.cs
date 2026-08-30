@@ -25,7 +25,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
     {
         "ally", "believer", "champion", "defender", "enemy", "fan", "friend",
         "leader", "opponent", "supporter", "advocate",
-        "critic", "follower", "member", "partner", "soldier", "soldiers", "body", "bodies", "scholar",
+        "critic", "follower", "girl", "member", "partner", "soldier", "soldiers", "body", "bodies", "scholar",
     };
 
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)
@@ -55,14 +55,15 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         if (confident)
         {
             return new SenseRankingResult(
-                ordered[0].Sense.ShortDefinition,
+                DescribeInSentence(ordered[0].Sense, targetWord),
                 ordered.Select(item => Format(item.Sense)).ToArray(),
                 true,
                 ordered[0].Sense,
                 WasContextAligned: true);
         }
 
-        var flat = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
+        var candidates = string.Join("  ", senses.Take(2).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
+        var flat = $"无法确定：{candidates}";
         return new SenseRankingResult(flat, senses.Select(Format).ToArray(), false);
     }
 
@@ -70,6 +71,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
     {
         var score = 0;
         var words = WordToken().Matches(context).Select(match => match.Value).ToArray();
+        var targetVisibleInContext = words.Any(word => word.Equals(targetWord, StringComparison.OrdinalIgnoreCase));
         for (var index = 0; index < words.Length; index++)
         {
             if (!words[index].Equals(targetWord, StringComparison.OrdinalIgnoreCase))
@@ -106,6 +108,16 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             score += 3;
         }
 
+        // The context crop deliberately removes the selected word to avoid
+        // OCR duplicating it.  When that leaves a sentence ending directly
+        // before the word, retain only high-signal English frames: articles
+        // and possessives introduce nouns, and an article plus modifier still
+        // introduces a noun.  Do not infer a sense from ordinary loose words.
+        if (!targetVisibleInContext && IsMaskedNounFrame(context) && sense.PartOfSpeech == "n")
+        {
+            score += 4;
+        }
+
         var definitionTokens = sense.EnglishDefinitions.SelectMany(Tokens).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var exampleTokens = (sense.EnglishExamples ?? []).SelectMany(Tokens).ToHashSet(StringComparer.OrdinalIgnoreCase);
         score += contextTokens.Count(token => definitionTokens.Contains(token));
@@ -123,6 +135,26 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
     private static string Format(DictionarySense sense) => string.IsNullOrWhiteSpace(sense.PartOfSpeech)
         ? sense.ShortDefinition
         : $"{sense.PartOfSpeech}. {sense.ShortDefinition}";
+
+    private static string DescribeInSentence(DictionarySense sense, string targetWord)
+    {
+        var partOfSpeech = sense.PartOfSpeech switch
+        {
+            "n" => "名词",
+            "v" => "动词",
+            "adj" or "a" => "形容词",
+            "adv" => "副词",
+            _ => "这个词",
+        };
+        return $"本句中，{targetWord}作{partOfSpeech}，指“{sense.ShortDefinition}”。";
+    }
+
+    private static bool IsMaskedNounFrame(string context)
+    {
+        var tail = context.Trim();
+        return Regex.IsMatch(tail, @"\b(?:a|an|the|my|your|his|her|its|our|their)\s*$", RegexOptions.IgnoreCase)
+            || Regex.IsMatch(tail, @"\b(?:a|an|the)\s+[A-Za-z]+\s*$", RegexOptions.IgnoreCase);
+    }
 
     private static string Number(int index) => index switch { 0 => "①", 1 => "②", _ => "③" };
 

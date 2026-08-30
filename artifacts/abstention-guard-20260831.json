@@ -1,0 +1,92 @@
+{
+  "GeneratedAt": "2026-08-30T17:42:37.1196377Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 2,
+  "MaxRunSeconds": 90,
+  "CandidateManifestPath": ".\\tests\\Data\\replay-candidates.json",
+  "CandidatePoolCount": 20,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 2,
+  "DictionaryFound": 2,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 2,
+  "OcrExact": 2,
+  "Top1SenseLabeled": 0,
+  "Top1Sense": 0,
+  "ContextLabeled": 0,
+  "ContextTop1Sense": 0,
+  "AbstentionLabeled": 2,
+  "Abstained": 2,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 2
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "likely-hud",
+      "Count": 1
+    },
+    {
+      "Name": "mixed-ui",
+      "Count": 1
+    }
+  ],
+  "Results": [
+    {
+      "Index": 1122,
+      "SourceWord": "shelter",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "shelter",
+      "ContextText": "",
+      "ContextAvailable": false,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 38952,
+      "ContrastRange": 255,
+      "EdgeDensity": 0.0335,
+      "GreenRatio": 0.0,
+      "ContentClass": "mixed-ui",
+      "FoundDefinition": true,
+      "ExpectedText": "shelter",
+      "OcrExact": true,
+      "ExpectedSense": "",
+      "Top1Sense": null,
+      "ExpectedOutcome": "abstain",
+      "PrimaryDefinition": "无法确定：① n. 庇护所、避难所、庇护  ② v. 庇护、保护、隐匿、躲避",
+      "Abstained": true,
+      "Diagnostic": "ok"
+    },
+    {
+      "Index": 1123,
+      "SourceWord": "bark",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "bark",
+      "ContextText": "",
+      "ContextAvailable": false,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 38952,
+      "ContrastRange": 255,
+      "EdgeDensity": 0.0231,
+      "GreenRatio": 0.0001,
+      "ContentClass": "likely-hud",
+      "FoundDefinition": true,
+      "ExpectedText": "bark",
+      "OcrExact": true,
+      "ExpectedSense": "",
+      "Top1Sense": null,
+      "ExpectedOutcome": "abstain",
+      "PrimaryDefinition": "无法确定：① n. 树皮、吠声  ② v. 吠、叫骂、喊出、剥树皮",
+      "Abstained": true,
+      "Diagnostic": "ok"
+    }
+  ]
+}
