@@ -72,7 +72,10 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         // entries), while more than three turns the first screen back into a
         // dictionary dump.
         var candidates = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
-        var flat = $"无法确定：{candidates}";
+        // Make the epistemic boundary readable before the candidate list.
+        // A user must not mistake these dictionary alternatives for a selected
+        // in-sentence meaning when the available crop cannot support one.
+        var flat = $"无法仅凭这一句确定；可能是：{candidates}";
         return new SenseRankingResult(flat, senses.Select(Format).ToArray(), false);
     }
 

@@ -347,7 +347,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
 
     var genericSoldier = ranker.Rank(staunchLookup, "staunch", "No soldier of Zeno would take pride in an execution.");
     AssertTrue(!genericSoldier.IsConfident, "an unrelated generic soldier must not force an adjective sense");
-    AssertTrue(genericSoldier.PrimaryDefinition.StartsWith("无法确定：", StringComparison.Ordinal), "generic soldier context should explicitly abstain");
+    AssertTrue(genericSoldier.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "generic soldier context should explicitly abstain");
 
     var richBarkLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠、叫骂、喊出、剥树皮"], [
         new DictionarySense("n", "树皮、吠声", ["the sound made by a dog", "tough protective covering of trees"]),
@@ -385,14 +385,14 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var unknown = ranker.Rank(lookup, "bark", string.Empty);
     AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
     AssertTrue(!unknown.WasContextAligned, "missing context must not be marked as aligned");
-    AssertTrue(unknown.PrimaryDefinition.StartsWith("无法确定：", StringComparison.Ordinal), "ambiguous card should state that the sense cannot be determined");
+    AssertTrue(unknown.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "ambiguous card should say that the available sentence cannot determine the sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("① n. 树皮", StringComparison.Ordinal), "ambiguous card should flatten the first sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("② v. 吠叫", StringComparison.Ordinal), "ambiguous card should flatten the second sense");
 
     var ambiguous = ranker.Rank(lookup, "bark", "They bark loudly.");
     AssertTrue(!ambiguous.IsConfident, "non-empty but unsupported context must not force a sense");
     AssertTrue(!ambiguous.WasContextAligned, "unsupported context must not be marked as aligned");
-    AssertTrue(ambiguous.PrimaryDefinition.StartsWith("无法确定：", StringComparison.Ordinal), "unsupported context should show the abstention explanation");
+    AssertTrue(ambiguous.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "unsupported context should show the abstention explanation");
 
     var crackLookup = new DictionaryLookupResult(true, "crack", ["n. 裂缝", "v. 爆裂", "adj. 第一流的"], [
         new DictionarySense("n", "裂缝", ["a narrow opening"]),
