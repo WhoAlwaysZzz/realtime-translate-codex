@@ -5,7 +5,7 @@ namespace RealtimeTranslate.Core.Dictionary;
 
 public sealed partial class WordNetExampleUsageHintService : IUsageHintService
 {
-    public string GetHint(DictionaryLookupResult lookup, SenseRankingResult ranking, string targetWord)
+    public UsageHintResult GetHint(DictionaryLookupResult lookup, SenseRankingResult ranking, string targetWord)
     {
         // An abstaining ranker may still expose a study-only comparison, but
         // every example must remain attached to its own sense. This keeps the
@@ -22,7 +22,7 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
         // a complete, compact two-way contrast.
         if (isMultiSenseComparison && senses.Count != 2)
         {
-            return string.Empty;
+            return UsageHintResult.Empty;
         }
 
         var hints = senses
@@ -37,23 +37,38 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
                     .ToArray();
                 if (examples.Length == 0)
                 {
-                    return string.Empty;
+                    return (Text: string.Empty, Examples: Array.Empty<string>());
                 }
 
-                return isMultiSenseComparison
+                var text = isMultiSenseComparison
                     ? $"{sense.PartOfSpeech}. {sense.ShortDefinition}：{string.Join(" · ", examples)}"
                     : string.Join(" · ", examples);
+                return (Text: text, Examples: examples);
             })
-            .Where(hint => hint.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(hint => hint.Text.Length > 0)
+            .GroupBy(hint => hint.Text, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .Take(2)
             .ToArray();
         if (isMultiSenseComparison && hints.Length != senses.Count)
         {
-            return string.Empty;
+            return UsageHintResult.Empty;
+        }
+        if (hints.Length == 0)
+        {
+            return UsageHintResult.Empty;
         }
 
-        return string.Join(" · ", hints);
+        var examples = hints.SelectMany(hint => hint.Examples).ToArray();
+        var exactCoverage = examples.Count(example => HasExactTarget(example, targetWord)) / (double)examples.Length;
+        var confidence = 0.75 + exactCoverage * 0.15;
+        var verification = exactCoverage == 1
+            ? "例句直含目标词"
+            : "例句含常规词形";
+        return new UsageHintResult(
+            string.Join(" · ", hints.Select(hint => hint.Text)),
+            $"Open English WordNet 2025；{verification}",
+            confidence);
     }
 
     private static string ToShortHint(string example, string targetWord)
@@ -74,6 +89,9 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
 
     private static bool ContainsTarget(string text, string targetWord) =>
         WordToken().Matches(text).Any(match => IsTargetForm(match.Value, targetWord));
+
+    private static bool HasExactTarget(string text, string targetWord) =>
+        WordToken().Matches(text).Any(match => match.Value.Equals(targetWord, StringComparison.OrdinalIgnoreCase));
 
     private static bool IsTargetForm(string word, string targetWord)
     {

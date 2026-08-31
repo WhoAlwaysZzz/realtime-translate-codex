@@ -429,10 +429,11 @@ public sealed class AppController : IDisposable
                 : string.Empty;
             if (usageHint.Length == 0 && insight.Breakdown.Length == 0)
             {
-                usageHint = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
-                if (usageHint.Length > 0)
+                var usage = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+                usageHint = usage.Text;
+                if (usage.HasEvidence)
                 {
-                    insightEvidence = "WordNet example usage；置信度 90%";
+                    insightEvidence = $"{usage.EvidenceSource}；置信度 {usage.Confidence:P0}";
                 }
             }
             var subtitle = lookup.Found
@@ -506,10 +507,11 @@ public sealed class AppController : IDisposable
             : string.Empty;
         if (usageHint.Length == 0 && insight.Breakdown.Length == 0)
         {
-            usageHint = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
-            if (usageHint.Length > 0)
+            var usage = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+            usageHint = usage.Text;
+            if (usage.HasEvidence)
             {
-                insightEvidence = "WordNet example usage；置信度 90%";
+                insightEvidence = $"{usage.EvidenceSource}；置信度 {usage.Confidence:P0}";
             }
         }
         var subtitle = lookup.Found

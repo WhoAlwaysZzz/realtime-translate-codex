@@ -4,5 +4,5 @@ namespace RealtimeTranslate.Core.Dictionary;
 
 public interface IUsageHintService
 {
-    string GetHint(DictionaryLookupResult lookup, SenseRankingResult ranking, string targetWord);
+    UsageHintResult GetHint(DictionaryLookupResult lookup, SenseRankingResult ranking, string targetWord);
 }

@@ -477,7 +477,7 @@ static void RenderedCardUsesFrequencyAndShortUsageFallback()
         1,
         WordBreakdown: string.Empty,
         WordFamily: ["dwindled", "dwindling"],
-        ContextHint: hint,
+        ContextHint: hint.Text,
         FrequencyBand: lookup.FrequencyBand);
 
     var lines = LookupCardTextFormatter.VisibleLines(presentation);
@@ -514,35 +514,41 @@ static void UsageHintRequiresTargetBearingExample()
         "无法仅凭这一句确定；可能是：① n. 树皮、吠声  ② v. 吠叫",
         ambiguousLookup.Definitions,
         false);
-    AssertEqual("n. 树皮、吠声：the bark of a dog · v. 吠叫：dogs bark at strangers", service.GetHint(ambiguousLookup, abstainedRanking, "bark"));
+    var comparison = service.GetHint(ambiguousLookup, abstainedRanking, "bark");
+    AssertEqual("n. 树皮、吠声：the bark of a dog · v. 吠叫：dogs bark at strangers", comparison.Text);
+    AssertEqual("Open English WordNet 2025；例句直含目标词", comparison.EvidenceSource);
+    AssertEqual(0.9, comparison.Confidence);
 
     var threeWayLookup = ambiguousLookup with
     {
         Senses = [nounSense, verbSense, new DictionarySense("adj", "粗糙的", ["rough"], ["bark-like texture"])],
     };
-    AssertEqual(string.Empty, service.GetHint(threeWayLookup, abstainedRanking, "bark"));
+    AssertEqual(UsageHintResult.Empty, service.GetHint(threeWayLookup, abstainedRanking, "bark"));
 
     var incompleteComparison = ambiguousLookup with
     {
         Senses = [nounSense, new DictionarySense("v", "吠叫", ["make a barking sound"])],
     };
-    AssertEqual(string.Empty, service.GetHint(incompleteComparison, abstainedRanking, "bark"));
+    AssertEqual(UsageHintResult.Empty, service.GetHint(incompleteComparison, abstainedRanking, "bark"));
 
     var definitionOnly = new DictionarySense("v", "移动", ["move from one place to another"]);
     var definitionLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [definitionOnly]);
     var definitionRanking = new SenseRankingResult("移动", definitionLookup.Definitions, true, definitionOnly);
-    AssertEqual(string.Empty, service.GetHint(definitionLookup, definitionRanking, "go"));
+    AssertEqual(UsageHintResult.Empty, service.GetHint(definitionLookup, definitionRanking, "go"));
 
     var prefixOnly = new DictionarySense("v", "移动", ["move"], ["a good plan"]);
     var prefixLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [prefixOnly]);
     var prefixRanking = new SenseRankingResult("移动", prefixLookup.Definitions, true, prefixOnly);
-    AssertEqual(string.Empty, service.GetHint(prefixLookup, prefixRanking, "go"));
+    AssertEqual(UsageHintResult.Empty, service.GetHint(prefixLookup, prefixRanking, "go"));
 
     var inflected = new DictionarySense("v", "逐渐减少", ["become smaller"], ["their savings dwindled away"]);
     var inflectedLookup = new DictionaryLookupResult(true, "dwindle", ["v. 逐渐减少"], [inflected]);
     var inflectedRanking = new SenseRankingResult("逐渐减少", inflectedLookup.Definitions, true, inflected);
-    AssertTrue(service.GetHint(inflectedLookup, inflectedRanking, "dwindle").Contains("dwindled", StringComparison.Ordinal),
+    var inflectedHint = service.GetHint(inflectedLookup, inflectedRanking, "dwindle");
+    AssertTrue(inflectedHint.Text.Contains("dwindled", StringComparison.Ordinal),
         "a conventional inflection should remain usable evidence");
+    AssertEqual("Open English WordNet 2025；例句含常规词形", inflectedHint.EvidenceSource);
+    AssertEqual(0.75, inflectedHint.Confidence);
 }
 
 static void WordCardRegressionsRejectFalseFamilies()
@@ -618,10 +624,11 @@ static void RandomRenderedCardsOmitUnsourcedLearningHooks()
         var evidence = insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty;
         if (hint.Length == 0 && insight.Breakdown.Length == 0)
         {
-            hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
-            if (hint.Length > 0)
+            var usageHint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            hint = usageHint.Text;
+            if (usageHint.HasEvidence)
             {
-                evidence = "WordNet example usage；置信度 90%";
+                evidence = $"{usageHint.EvidenceSource}；置信度 {usageHint.Confidence:P0}";
             }
         }
         var presentation = new LookupPresentation(
@@ -678,10 +685,11 @@ static void ExportRenderedCardAudit(string outputPath)
         var evidence = insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty;
         if (hint.Length == 0 && insight.Breakdown.Length == 0)
         {
-            hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
-            if (hint.Length > 0)
+            var usageHint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            hint = usageHint.Text;
+            if (usageHint.HasEvidence)
             {
-                evidence = "WordNet example usage；置信度 90%";
+                evidence = $"{usageHint.EvidenceSource}；置信度 {usageHint.Confidence:P0}";
             }
         }
         var presentation = new LookupPresentation(

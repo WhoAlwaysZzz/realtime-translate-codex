@@ -1,46 +1,45 @@
 # Agentic Loop Status
 
-Updated: 2026-09-01 01:19:00
+Updated: 2026-09-01 02:05:00
 
 - Run: agent iteration 9
 - Stage: improving usable context OCR and learning-card quality
 - Goal: reliable sentence understanding plus memorable word learning
 - Independent review: required after each relevant committed change
 - Completion: automatic threshold or user acceptance
-- Hypothesis: when the OCR/context trust gate abstains, source-backed study
-  examples can still help memory if they are explicitly and completely bound to
-  every candidate sense. A partial set of examples must remain omitted because
-  it would quietly choose the sense that the first screen declined to choose.
-- Change: `WordNetExampleUsageHintService` now permits a study-only comparison
-  only for exactly two candidate senses, only when each has at least one
-  target-bearing WordNet example, and prefixes each example group with that
-  sense's POS and Chinese definition. The first-screen meaning continues to
-  abstain and says `未用于筛选`. Selected-sense cards keep their existing
-  compact, unlabeled examples.
-- Metric delta: the 200-word rendered-card audit moves from 80 to 90
-  source-bearing learning hooks (+10, 40.0% to 45.0%) relative to
-  `artifacts/card-audit-sense-bound-learning-20260901.tsv`. Exactly 10 formerly
-  blank abstaining two-sense cards gain a complete contrast in
-  `artifacts/card-audit-multisense-learning-20260901.tsv`; 23 other abstaining
-  cards remain honestly blank because they have three or more senses or an
-  unsupported candidate. This is not the required 30-word learning evaluation
-  and does not claim the 70% goal is met.
-- Real examples: untrusted `bleach` now keeps `无法仅凭这一句确定` and adds
-  `v. 漂白、变白：bleach the laundry ... · n. 漂白、漂白剂：a complete
-  bleach ...`; `compact` likewise contrasts adjective and verb examples.
-  The `bark` regression fixture yields the same two labeled alternatives.
-  A three-way `bark` fixture and a two-way fixture with a missing counterpart
-  both omit the learning line.
-- Regressions/limits: the 10 examples are dictionary evidence, not real-game
-  context, and no real screenshot/gold corpus was changed. Learning-hook
-  coverage is still far below the 70% target. The only independent review
-  outcomes on record are `insufficient-evidence`; the blind-review files have
-  no completed decisions. Automatic acceptance criteria are not met. Do not
-  create `docs/agent-loop.auto-accepted.md` or modify `docs/agent-loop.accepted`.
-- Verification: focused test runner passes all 22 checks; `dotnet build
-  RealtimeTranslateCodex.sln -c Release --no-restore` completes with 0 warnings
-  and 0 errors. New regression checks cover complete two-way, incomplete
-  two-way, and three-way abstaining examples.
-- Next question: in a 30-word, independent learning review with real game
-  screenshots, do these explicitly labeled two-way comparisons improve useful
-  learning without reviewers treating them as a hidden current-sentence gloss?
+- Hypothesis: a fixed `WordNet example usage; confidence 90%` label is not
+  evidence-backed because individual hints differ in whether their retained
+  example contains the lemma itself or only a conventional inflection. The
+  card must expose the actual source and verification scope instead of a
+  blanket confidence claim.
+- Change: `IUsageHintService` now returns `UsageHintResult`, which binds hint
+  text to `Open English WordNet 2025`, target-form verification, and a derived
+  confidence. A direct target match yields 90%; conventional inflections lower
+  confidence according to the retained-example coverage. Empty evidence is
+  fail-closed. Both OCR lookup and manual lookup use this result; the context
+  trust gate and abstention behavior are unchanged.
+- Metric delta: source-bearing learning hints remain 90/200 in
+  `artifacts/card-audit-provenance-derived-20260901.tsv` (no coverage claim).
+  Their provenance is now auditable: 68 show `例句直含目标词` at 90%, and 22
+  show `例句含常规词形` at a derived 75%–85%, rather than all being labeled
+  90%. This is provenance-quality improvement, not a learning acceptance
+  result.
+- Real examples: `bleach` remains an abstaining two-sense card and labels its
+  WordNet comparison as `例句含常规词形；置信度 85%` because `bleached` is one
+  retained example. `compact` behaves the same for `compacts`. A selected
+  `dwindle` usage with only `dwindled` is labeled 75%. Direct matches such as
+  `abrupt` retain 90% with the explicit direct-match label.
+- Regressions/limits: no screenshot or gold-corpus OCR data changed, and the
+  required 50-screenshot / 30-word independent review datasets do not exist
+  in this repository. The latest independent reviewer outcome remains
+  `insufficient-evidence`; its cited absence of actual card captures and
+  completed review decisions is unresolved. Do not create
+  `docs/agent-loop.auto-accepted.md` or modify `docs/agent-loop.accepted`.
+- Verification: `dotnet build RealtimeTranslateCodex.sln -c Release
+  --no-restore` completed with 0 warnings and 0 errors; the executable focused
+  suite passed 22/22. Tests cover direct forms, inflections, empty evidence,
+  complete two-way comparisons, incomplete comparisons, and three-way
+  abstention.
+- Next question: can a reviewer assess captured first-screen cards against a
+  real, dual-transcribed game-screenshot corpus before further learning-card
+  wording or confidence tuning?
