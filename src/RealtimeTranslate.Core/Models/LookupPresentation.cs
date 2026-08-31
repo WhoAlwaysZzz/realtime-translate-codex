@@ -11,4 +11,5 @@ public sealed record LookupPresentation(
     IReadOnlyList<string>? WordFamily = null,
     string ContextHint = "",
     int FrequencyBand = 0,
-    bool IsContextAligned = false);
+    bool IsContextAligned = false,
+    string InsightEvidence = "");

@@ -22,6 +22,11 @@ public static class LookupCardTextFormatter
     public static string Usage(LookupPresentation presentation) =>
         string.IsNullOrWhiteSpace(presentation.ContextHint) ? string.Empty : $"用法/语境  {presentation.ContextHint}";
 
+    public static string Evidence(LookupPresentation presentation) =>
+        string.IsNullOrWhiteSpace(presentation.InsightEvidence)
+            ? string.Empty
+            : $"证据  {presentation.InsightEvidence}";
+
     public static string ContextAlignment(LookupPresentation presentation) =>
         presentation.IsContextAligned ? "整句句意对齐：已用于筛选" : "整句句意对齐：未用于筛选";
 
@@ -52,6 +57,12 @@ public static class LookupCardTextFormatter
         if (!string.IsNullOrWhiteSpace(usage))
         {
             core.Add(usage);
+        }
+
+        var evidence = Evidence(presentation);
+        if (!string.IsNullOrWhiteSpace(evidence))
+        {
+            core.Add(evidence);
         }
 
         return core.Take(5).ToArray();

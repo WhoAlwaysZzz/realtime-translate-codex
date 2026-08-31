@@ -28,6 +28,7 @@ var tests = new (string Name, Action Body)[]
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
     ("OCR text composer joins words into readable text", OcrTextComposerJoinsWordsIntoReadableText),
     ("word card index loads exact reviewed fields", WordCardIndexLoadsExactFields),
+    ("word card evidence is surfaced with confidence", WordCardEvidenceIsSurfacedWithConfidence),
     ("word card regressions reject false families", WordCardRegressionsRejectFalseFamilies),
     ("random advanced word audit meets coverage target", RandomAdvancedWordAuditMeetsCoverageTarget),
     ("random rendered cards meet visible coverage target", RandomRenderedCardsMeetVisibleCoverageTarget),
@@ -278,6 +279,21 @@ static void WordCardIndexLoadsExactFields()
     AssertEqual("effable", insight.Family[0]);
     AssertEqual("sacred mysteries", insight.ContextHint);
     AssertEqual(WordInsight.Empty, service.Lookup("not-in-index"));
+}
+
+static void WordCardEvidenceIsSurfacedWithConfidence()
+{
+    var root = CreateInsightFixture();
+    var service = new MorphemeWordInsightService(Path.Combine(root, "word-cards.tsv"));
+    var insight = service.Lookup("ineffable");
+    AssertTrue(insight.HasEvidence, "non-empty insight must carry evidence");
+    AssertEqual("MorphoLex (2018)", insight.EvidenceSource);
+    AssertTrue(insight.Confidence > 0.7, "reviewed insight should have usable confidence");
+
+    var presentation = new LookupPresentation("ineffable", "lemma: ineffable", ["无法形容的"], "无法形容的", 1,
+        WordBreakdown: insight.Breakdown, InsightEvidence: $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}");
+    AssertTrue(LookupCardTextFormatter.VisibleLines(presentation).Any(line => line.StartsWith("证据  ", StringComparison.Ordinal)),
+        "card should expose evidence separately from the gloss");
 }
 
 static void StructuredDictionaryRetainsSensesAndFrequency()
