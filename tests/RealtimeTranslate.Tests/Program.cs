@@ -290,6 +290,18 @@ static void WordCardEvidenceIsSurfacedWithConfidence()
     AssertEqual("MorphoLex (2018)", insight.EvidenceSource);
     AssertTrue(insight.Confidence > 0.7, "reviewed insight should have usable confidence");
 
+    var legacyFixture = Path.Combine(root, "legacy-word-cards.tsv");
+    File.WriteAllText(legacyFixture, "ineffable\tbreakdown\teffable\tsacred mysteries\n");
+    var legacyInsight = new MorphemeWordInsightService(legacyFixture).Lookup("ineffable");
+    AssertEqual(string.Empty, legacyInsight.ContextHint);
+    AssertEqual("MorphoLex (2018)", legacyInsight.EvidenceSource);
+
+    var explicitFixture = Path.Combine(root, "explicit-word-cards.tsv");
+    File.WriteAllText(explicitFixture, "ineffable\tbreakdown\teffable\tsacred mysteries\tWordNet examples\t0.9\n");
+    var explicitInsight = new MorphemeWordInsightService(explicitFixture).Lookup("ineffable");
+    AssertEqual("sacred mysteries", explicitInsight.ContextHint);
+    AssertEqual("WordNet examples", explicitInsight.EvidenceSource);
+
     var presentation = new LookupPresentation("ineffable", "lemma: ineffable", ["无法形容的"], "无法形容的", 1,
         WordBreakdown: insight.Breakdown, InsightEvidence: $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}");
     AssertTrue(LookupCardTextFormatter.VisibleLines(presentation).Any(line => line.StartsWith("证据  ", StringComparison.Ordinal)),
@@ -607,7 +619,7 @@ static string CreateInsightFixture()
     Directory.CreateDirectory(root);
     File.WriteAllText(
         Path.Combine(root, "word-cards.tsv"),
-        "ineffable\tineffable（词基：无法形容的）\teffable,ineffability\tsacred mysteries");
+        "ineffable\tineffable（词基：无法形容的）\teffable,ineffability\tsacred mysteries\tMorphoLex (2018)\t0.75");
     return root;
 }
 
