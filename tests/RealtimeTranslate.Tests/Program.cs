@@ -481,6 +481,10 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var crack = ranker.Rank(crackLookup, "crack", "No soldier of Zeno would take pride in an execution.");
     AssertTrue(!crack.IsConfident, "unrelated context must not force crack's adjective sense");
     AssertTrue(crack.PrimaryDefinition.Contains("③ adj. 第一流的", StringComparison.Ordinal), "an abstaining card should retain the third concise candidate");
+
+    var crackShot = ranker.Rank(crackLookup, "crack", "Lopera is a crack shot.");
+    AssertTrue(crackShot.IsConfident, "an adjective plus a known head noun should be rankable");
+    AssertEqual("adj", crackShot.SelectedSense?.PartOfSpeech);
 }
 
 static void ContextQualityGateRejectsOcrDebris()

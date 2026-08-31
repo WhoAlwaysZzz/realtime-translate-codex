@@ -26,6 +26,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         "ally", "believer", "champion", "defender", "enemy", "fan", "friend",
         "leader", "opponent", "supporter", "advocate",
         "critic", "follower", "girl", "member", "partner", "body", "bodies", "scholar",
+        "shot",
     };
 
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)
@@ -152,6 +153,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             }
 
             var previous = index > 0 ? words[index - 1] : string.Empty;
+            var next = index + 1 < words.Length ? words[index + 1] : string.Empty;
             if (VerbSignals.Contains(previous) && sense.PartOfSpeech == "v")
             {
                 score += 4;
@@ -172,12 +174,11 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             {
                 score += 5;
             }
-        }
 
-        if (sense.PartOfSpeech is "adj" or "a"
-            && contextTokens.Any(AdjectiveHeadNouns.Contains))
-        {
-            score += 3;
+            if (sense.PartOfSpeech is "adj" or "a" && AdjectiveHeadNouns.Contains(next))
+            {
+                score += 5;
+            }
         }
 
         // The context crop deliberately removes the selected word to avoid
