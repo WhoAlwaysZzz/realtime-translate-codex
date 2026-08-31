@@ -43,6 +43,12 @@ if (args is ["--export-card-audit", var auditPath])
     return 0;
 }
 
+if (args is ["--export-context-trust-audit", var contextAuditPath])
+{
+    ExportContextTrustAudit(contextAuditPath);
+    return 0;
+}
+
 var failed = 0;
 foreach (var test in tests)
 {
@@ -368,6 +374,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var dog = ranker.Rank(lookup, "bark", "The dog began to bark at the stranger.");
     AssertTrue(dog.IsConfident, "dog context should be confidently verbal");
     AssertTrue(dog.WasContextAligned, "dog context should be marked as aligned");
+    AssertEqual(ContextTrustStatus.UsedForMeaning, dog.ContextStatus);
     AssertEqual("本句中，bark作动词，指“吠叫”。", dog.PrimaryDefinition);
 
     var inflectedDog = ranker.Rank(
@@ -406,6 +413,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var untrustedSingle = ranker.Rank(singleSense, "dwindle", "Their savings d w i n d l e d away.");
     AssertEqual("v. 逐渐减少、缩小", untrustedSingle.PrimaryDefinition);
     AssertTrue(!untrustedSingle.WasContextAligned, "untrusted OCR must not be described as an in-sentence reading for a single-sense word");
+    AssertEqual(ContextTrustStatus.Rejected, untrustedSingle.ContextStatus);
 
     var staunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住", "adj. 忠实"], [
         new DictionarySense("v", "止住", ["stop or check the flow of blood" ]),
@@ -422,6 +430,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var unanchoredDog = ranker.Rank(lookup, "bark", "The dog runs toward the stranger.");
     AssertTrue(!unanchoredDog.IsConfident, "a readable but unanchored crop must not let a nearby dog choose bark's verb sense");
     AssertTrue(!unanchoredDog.WasContextAligned, "an unanchored crop must not be described as aligned");
+    AssertEqual(ContextTrustStatus.TrustedNotUsed, unanchoredDog.ContextStatus);
     AssertTrue(unanchoredDog.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "an unanchored crop should explicitly abstain");
 
     var richBarkLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠、叫骂、喊出、剥树皮"], [
@@ -460,6 +469,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var unknown = ranker.Rank(lookup, "bark", string.Empty);
     AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
     AssertTrue(!unknown.WasContextAligned, "missing context must not be marked as aligned");
+    AssertEqual(ContextTrustStatus.Unavailable, unknown.ContextStatus);
     AssertTrue(unknown.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "ambiguous card should say that the available sentence cannot determine the sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("① n. 树皮", StringComparison.Ordinal), "ambiguous card should flatten the first sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("② v. 吠叫", StringComparison.Ordinal), "ambiguous card should flatten the second sense");
@@ -472,6 +482,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var fragmentary = ranker.Rank(staunchLookup, "staunch", "He stands in s a e Sao Paulo.");
     AssertTrue(!fragmentary.IsConfident, "fragmentary OCR must not steer sense ranking");
     AssertTrue(!fragmentary.WasContextAligned, "fragmentary OCR must not be marked aligned");
+    AssertEqual(ContextTrustStatus.Rejected, fragmentary.ContextStatus);
 
     var crackLookup = new DictionaryLookupResult(true, "crack", ["n. 裂缝", "v. 爆裂", "adj. 第一流的"], [
         new DictionarySense("n", "裂缝", ["a narrow opening"]),
@@ -543,12 +554,16 @@ static void RenderedCardUsesFrequencyAndShortUsageFallback()
     var lines = LookupCardTextFormatter.VisibleLines(presentation);
     AssertEqual("dwindle ★★☆", lines[0]);
     AssertEqual("逐渐减少、缩小", lines[1]);
-    AssertEqual("整句句意对齐：未用于筛选", lines[2]);
+    AssertEqual("上下文：未识别到可用句子", lines[2]);
     AssertEqual("词族/词形  dwindled · dwindling", lines[3]);
     AssertEqual("用法/语境  their savings dwindled away · our dwindling natural resources", lines[4]);
 
-    var alignedLines = LookupCardTextFormatter.VisibleLines(presentation with { IsContextAligned = true });
-    AssertEqual("整句句意对齐：已用于筛选", alignedLines[2]);
+    var rejectedLines = LookupCardTextFormatter.VisibleLines(presentation with { ContextStatus = ContextTrustStatus.Rejected });
+    AssertEqual("上下文：OCR不可靠，未参与释义", rejectedLines[2]);
+    var unusedLines = LookupCardTextFormatter.VisibleLines(presentation with { ContextStatus = ContextTrustStatus.TrustedNotUsed });
+    AssertEqual("上下文：可信，未参与义项筛选", unusedLines[2]);
+    var alignedLines = LookupCardTextFormatter.VisibleLines(presentation with { ContextStatus = ContextTrustStatus.UsedForMeaning });
+    AssertEqual("上下文：可信，已用于锁定本句义", alignedLines[2]);
 
     var crowded = presentation with
     {
@@ -761,6 +776,53 @@ static void ExportRenderedCardAudit(string outputPath)
             ? "-"
             : presentation.InsightEvidence;
         writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}\t{evidenceColumn}");
+    }
+}
+
+static void ExportContextTrustAudit(string outputPath)
+{
+    var appDirectory = FindAppSourceDirectory();
+    var dictionary = new StructuredDictionaryService(
+        Path.Combine(appDirectory, "Data", "lexicon.jsonl.gz"),
+        new EmbeddedDictionaryService(Path.Combine(appDirectory, "dictionary.tsv")));
+    var normalizer = new BasicWordNormalizer();
+    var ranker = new LocalContextSenseRanker();
+    var cases = new[]
+    {
+        new { Index = 500, Screenshot = "20260711-221147-107.png", Word = "frail", Manual = "Her voice softens as she looks at the frail, slender girl in front of her.", Ocr = "Her voice softens as she looks at the frail, slender girl in front of her.", Expected = ContextTrustStatus.UsedForMeaning },
+        new { Index = 657, Screenshot = "20260713-225757-120.png", Word = "-neglected", Manual = "The long-neglected questions have created a cloud of doubt between us. And now, the boulder of fate is falling on us, and we are teetering on the brink of", Ocr = "888 The long-neglected questions have created a cloud of dou now, the boulder of fate is falling on us, and we are teeter", Expected = ContextTrustStatus.TrustedNotUsed },
+        new { Index = 939, Screenshot = "20260716-194539-601.png", Word = "thrust", Manual = "The islanders were thrust into war, their beliefs shattered, and their vulnerability then exploited by the Manus, who welcomed them with open arms.", Ocr = "Sonetto The islanders were thrust into war, their beliefs shattered, and th vulnerability then exploited by the Manus, who welcomed them v arms.", Expected = ContextTrustStatus.Rejected },
+        new { Index = 1123, Screenshot = "20260830-035133-023.png", Word = "bark", Manual = "bark | The dog began to bark at the stranger.", Ocr = "bark", Expected = ContextTrustStatus.Rejected },
+        new { Index = 1127, Screenshot = "20260830-045028-487.png", Word = "bark", Manual = "bark | The dog began to bark at the stranger.", Ocr = "bark The dog began to bark", Expected = ContextTrustStatus.UsedForMeaning },
+    };
+
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+    using var writer = new StreamWriter(outputPath, false, new System.Text.UTF8Encoding(false));
+    writer.WriteLine("archive index\tscreenshot\ttarget\tmanual transcription\tobserved OCR context\texpected trust\tactual trust\tprimary meaning\tbefore first-screen lines\tafter first-screen lines");
+    foreach (var sample in cases)
+    {
+        var normalized = normalizer.Normalize(sample.Word);
+        var lookup = dictionary.Lookup(normalized);
+        var ranking = ranker.Rank(lookup, normalized, sample.Ocr);
+        AssertEqual(sample.Expected, ranking.ContextStatus);
+        var presentation = new LookupPresentation(
+            normalized.DisplayWord,
+            $"lemma: {lookup.EntryWord}",
+            ranking.Definitions,
+            ranking.PrimaryDefinition,
+            1,
+            FrequencyBand: lookup.FrequencyBand,
+            ContextStatus: ranking.ContextStatus);
+        var after = string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation).Take(3));
+        var beforeStatus = ranking.WasContextAligned
+            ? "整句句意对齐：已用于筛选"
+            : "整句句意对齐：未用于筛选";
+        var before = string.Join(" | ", new[] { $"{presentation.Title} {LookupCardTextFormatter.Frequency(presentation.FrequencyBand)}".Trim(), presentation.PrimaryDefinition, beforeStatus });
+        writer.WriteLine(string.Join('\t', new[]
+        {
+            sample.Index.ToString(), sample.Screenshot, sample.Word, sample.Manual, sample.Ocr,
+            sample.Expected.ToString(), ranking.ContextStatus.ToString(), ranking.PrimaryDefinition, before, after,
+        }.Select(value => value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' '))));
     }
 }
 

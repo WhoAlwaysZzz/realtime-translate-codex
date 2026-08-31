@@ -27,8 +27,13 @@ public static class LookupCardTextFormatter
             ? string.Empty
             : $"证据  {presentation.InsightEvidence}";
 
-    public static string ContextAlignment(LookupPresentation presentation) =>
-        presentation.IsContextAligned ? "整句句意对齐：已用于筛选" : "整句句意对齐：未用于筛选";
+    public static string ContextTrust(LookupPresentation presentation) => presentation.ContextStatus switch
+    {
+        ContextTrustStatus.UsedForMeaning => "上下文：可信，已用于锁定本句义",
+        ContextTrustStatus.TrustedNotUsed => "上下文：可信，未参与义项筛选",
+        ContextTrustStatus.Rejected => "上下文：OCR不可靠，未参与释义",
+        _ => "上下文：未识别到可用句子",
+    };
 
     public static IReadOnlyList<string> VisibleLines(LookupPresentation presentation)
     {
@@ -36,7 +41,7 @@ public static class LookupCardTextFormatter
         {
             $"{presentation.Title} {Frequency(presentation.FrequencyBand)}".Trim(),
             presentation.PrimaryDefinition,
-            presentation.IsError ? string.Empty : ContextAlignment(presentation),
+            presentation.IsError ? string.Empty : ContextTrust(presentation),
         }.Where(line => line.Length > 0).ToList();
 
         // Keep the first screen compact: sentence meaning and usage outrank

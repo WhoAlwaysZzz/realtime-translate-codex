@@ -53,7 +53,12 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         IReadOnlyList<string> targetVariants,
         string context)
     {
-        var contextIsSafe = ContextQualityGate.IsSafe(context);
+        var contextStatus = string.IsNullOrWhiteSpace(context)
+            ? ContextTrustStatus.Unavailable
+            : ContextQualityGate.IsSafe(context)
+                ? ContextTrustStatus.TrustedNotUsed
+                : ContextTrustStatus.Rejected;
+        var contextIsSafe = contextStatus == ContextTrustStatus.TrustedNotUsed;
         if (!contextIsSafe)
         {
             context = string.Empty;
@@ -63,7 +68,11 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         if (senses.Count == 0)
         {
             var definitions = lookup.Definitions.ToArray();
-            return new SenseRankingResult(definitions.FirstOrDefault() ?? string.Empty, definitions, definitions.Length <= 1);
+            return new SenseRankingResult(
+                definitions.FirstOrDefault() ?? string.Empty,
+                definitions,
+                definitions.Length <= 1,
+                ContextStatus: contextStatus);
         }
 
         if (senses.Count == 1)
@@ -77,14 +86,16 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
                     Format(senses[0]),
                     [Format(senses[0])],
                     true,
-                    senses[0]);
+                    senses[0],
+                    contextStatus);
             }
 
             return new SenseRankingResult(
                 DescribeInSentence(senses[0], targetWord, context),
                 [Format(senses[0])],
                 true,
-                senses[0]);
+                senses[0],
+                contextStatus);
         }
 
         var contextTokens = Tokens(context).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -101,7 +112,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         // manufacture a confident but unrelated sense.
         if (!targetVisibleInContext && !hasMaskedFrame)
         {
-            return Abstain(senses);
+            return Abstain(senses, contextStatus);
         }
         var ordered = senses
             .Select((sense, index) => new RankedSense(sense, Score(sense, targetWord, normalizedTargetVariants, context, contextTokens), index))
@@ -119,7 +130,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
                 ordered.Select(item => Format(item.Sense)).ToArray(),
                 true,
                 ordered[0].Sense,
-                WasContextAligned: true);
+                ContextTrustStatus.UsedForMeaning);
         }
 
         // Preserve a small, useful spread of parts of speech on an abstaining
@@ -127,17 +138,23 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         // example, crack's adjective "first-rate" sense behind noun and verb
         // entries), while more than three turns the first screen back into a
         // dictionary dump.
-        return Abstain(senses);
+        return Abstain(senses, contextStatus);
     }
 
-    private static SenseRankingResult Abstain(IReadOnlyList<DictionarySense> senses)
+    private static SenseRankingResult Abstain(
+        IReadOnlyList<DictionarySense> senses,
+        ContextTrustStatus contextStatus)
     {
         var candidates = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
         // Make the epistemic boundary readable before the candidate list.
         // A user must not mistake these dictionary alternatives for a selected
         // in-sentence meaning when the available crop cannot support one.
         var flat = $"无法仅凭这一句确定；可能是：{candidates}";
-        return new SenseRankingResult(flat, senses.Select(Format).ToArray(), false);
+        return new SenseRankingResult(
+            flat,
+            senses.Select(Format).ToArray(),
+            false,
+            ContextStatus: contextStatus);
     }
 
     private static int Score(

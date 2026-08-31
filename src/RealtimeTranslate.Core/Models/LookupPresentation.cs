@@ -11,5 +11,8 @@ public sealed record LookupPresentation(
     IReadOnlyList<string>? WordFamily = null,
     string ContextHint = "",
     int FrequencyBand = 0,
-    bool IsContextAligned = false,
-    string InsightEvidence = "");
+    ContextTrustStatus ContextStatus = ContextTrustStatus.Unavailable,
+    string InsightEvidence = "")
+{
+    public bool IsContextAligned => ContextStatus == ContextTrustStatus.UsedForMeaning;
+}

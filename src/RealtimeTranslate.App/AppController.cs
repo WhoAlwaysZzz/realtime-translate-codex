@@ -450,7 +450,7 @@ public sealed class AppController : IDisposable
                 WordFamily: insight.Family,
                 ContextHint: usageHint,
                 FrequencyBand: lookup.FrequencyBand,
-                IsContextAligned: ranking.WasContextAligned,
+                ContextStatus: ranking.ContextStatus,
                 InsightEvidence: insightEvidence);
 
             SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates, contextText, primaryDefinition));
@@ -529,7 +529,7 @@ public sealed class AppController : IDisposable
             WordFamily: insight.Family,
             ContextHint: usageHint,
             FrequencyBand: lookup.FrequencyBand,
-            IsContextAligned: ranking.WasContextAligned,
+            ContextStatus: ranking.ContextStatus,
             InsightEvidence: insightEvidence));
     }
 
