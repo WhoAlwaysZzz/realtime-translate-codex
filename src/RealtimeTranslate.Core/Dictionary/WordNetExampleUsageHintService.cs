@@ -7,9 +7,17 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
 {
     public string GetHint(DictionaryLookupResult lookup, SenseRankingResult ranking, string targetWord)
     {
-        var senses = ranking.SelectedSense is not null
-            ? [ranking.SelectedSense]
-            : lookup.Senses ?? [];
+        // A usage example is a sense-specific learning claim.  When ranking
+        // abstains, examples from all dictionary senses can silently steer the
+        // learner toward one of the meanings that the main card refused to
+        // choose.  Keep the same trust boundary for both layers: no selected
+        // sense means no usage hint.
+        if (ranking.SelectedSense is null)
+        {
+            return string.Empty;
+        }
+
+        var senses = new[] { ranking.SelectedSense };
         var hints = senses
             .SelectMany(sense => sense.EnglishExamples ?? [])
             .Where(example => ContainsTarget(example, targetWord))

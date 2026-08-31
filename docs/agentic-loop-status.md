@@ -1,16 +1,40 @@
 # Agentic Loop Status
 
-Updated: 2026-09-01 01:28:00
+Updated: 2026-09-01 00:49:14
 
-- Run: agent iteration 8
+- Run: agent iteration 7
 - Stage: improving usable context OCR and learning-card quality
 - Goal: reliable sentence understanding plus memorable word learning
 - Independent review: required after each relevant committed change
 - Completion: automatic threshold or user acceptance
-- Hypothesis: provenance must describe the actual displayed item, not merely its service. A WordNet definition or a prefix collision (for example `go` in `good`) cannot truthfully be presented as a target-word example; allowing only target-bearing example sentences will remove another class of false learning evidence.
-- Change: `WordNetExampleUsageHintService` no longer falls back to definitions, and its matcher accepts only the exact target or a small conventional inflection set. New tests reject definition-only and `go`/`good` prefix cases while retaining `dwindle`/`dwindled`. This follows commit `78f5d85`, which suppresses legacy four-column morphology/family rows and adds provenance fields to future generated rows.
-- Metric delta: on the same 200-word audit, the first fail-closed pass showed 200/200 purported WordNet examples. After requiring an actual target-bearing example, 113/200 cards retain source-labelled WordNet usage and 87/200 honestly omit a learning hook: `artifacts/card-audit-targeted-wordnet-20260901.tsv`. No remaining audit card shows a usage line without the matching evidence label. Executable suite: 21/21 passed. `dotnet build RealtimeTranslateCodex.sln --no-restore`: 0 warnings, 0 errors.
-- Real examples: `abrupt` retains `an abrupt reply · came to an abrupt stop`; a `go` lookup no longer treats `a good plan` as a target-word example; a definition such as `move from one place to another` no longer appears as “example usage”.
-- Regressions/limits: 87/200 audit words now have no learning hook, so useful source-bearing coverage is 56.5%, below the 70% goal. Legacy TSV rows still lack field-level evidence; the generator currently writes one source/confidence per row, which is insufficient when breakdown and family came from different inputs. The independent read-only review of `78f5d85` was `insufficient-evidence`: there is no screenshot gold corpus, two-agent transcriptions, 30-word learning evaluation, regenerated production TSV, or completed blind reviewer report. OCR and learning completion thresholds remain unmeasured.
-- Independent review: a fresh review is required after this committed change. Do not create `docs/agent-loop.auto-accepted.md` or modify `docs/agent-loop.accepted`.
-- Next question: can the regenerated TSV carry separate evidence per displayed breakdown/family item and raise useful, source-bearing learning hooks to at least 70% in a blinded 30-word evaluation without reintroducing false provenance?
+- Hypothesis (iteration 7): WordNet usage examples must be gated by the same
+  selected-sense boundary as the first-screen meaning. An abstaining context
+  ranker must not expose examples from every dictionary sense as a 90% learning
+  claim.
+- Change: `WordNetExampleUsageHintService` now returns no hint when
+  `SenseRankingResult.SelectedSense` is null; target-bearing and inflected
+  examples remain available for a selected sense. Added a regression fixture for
+  ambiguous `bark` plus existing `dwindle`/false-prefix cases.
+- Metric delta (200-word rendered-card audit): ambiguous cards with a
+  `用法/语境` learning line 33 → 0 (−33; 100% removal of unsafe mixed-sense
+  hints). Source-bearing learning lines 113 → 80 (−33), an intentional
+  fail-closed tradeoff. OCR replay evidence is unchanged: 20/20 exact OCR,
+  15/20 context Top-1 on the labeled 20-sample batch; this iteration did not
+  claim an OCR gain.
+- Real examples: `adolescent` and `attendant` previously showed an abstaining
+  first screen plus WordNet examples that implicitly selected one POS; they now
+  show only the explicit candidate meanings. `bark` with no trusted context
+  abstains without a learning usage line, while `bark` in “The dog began to bark”
+  keeps the selected verb sense and contextual gloss.
+- Regression / limitation: 33 ambiguous cards lose a potentially useful usage
+  example until sense selection or a separately labeled multi-sense study
+  insight exists. No OCR, crop, or latency path was changed. Independent
+  read-only review is still required; current review artifacts are forms without
+  completed verdicts, so automatic completion criteria are not met.
+- Verification: `dotnet build RealtimeTranslateCodex.sln -c Release --no-restore`
+  (0 warnings, 0 errors); focused test runner passes all 23 checks; before/after
+  audit artifacts are `artifacts/card-audit-before-sense-bound-learning-20260901.tsv`
+  and `artifacts/card-audit-sense-bound-learning-20260901.tsv`.
+- Next question: can we add a separately sourced, explicitly multi-sense
+  learning insight (with per-sense labels and evidence) without reintroducing
+  ambiguity into the first screen?

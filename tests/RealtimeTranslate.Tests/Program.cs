@@ -506,6 +506,16 @@ static void RenderedCardUsesFrequencyAndShortUsageFallback()
 static void UsageHintRequiresTargetBearingExample()
 {
     var service = new WordNetExampleUsageHintService();
+
+    var nounSense = new DictionarySense("n", "树皮、吠声", ["the sound made by a dog"], ["the bark of a dog"]);
+    var verbSense = new DictionarySense("v", "吠叫", ["make a barking sound"], ["dogs bark at strangers"]);
+    var ambiguousLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠叫"], [nounSense, verbSense]);
+    var abstainedRanking = new SenseRankingResult(
+        "无法仅凭这一句确定；可能是：① n. 树皮、吠声  ② v. 吠叫",
+        ambiguousLookup.Definitions,
+        false);
+    AssertEqual(string.Empty, service.GetHint(ambiguousLookup, abstainedRanking, "bark"));
+
     var definitionOnly = new DictionarySense("v", "移动", ["move from one place to another"]);
     var definitionLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [definitionOnly]);
     var definitionRanking = new SenseRankingResult("移动", definitionLookup.Definitions, true, definitionOnly);
