@@ -18,16 +18,6 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(2)
             .ToArray();
-        if (hints.Length == 0)
-        {
-            hints = senses
-                .SelectMany(sense => sense.EnglishDefinitions)
-                .Select(definition => ToShortHint(definition, targetWord))
-                .Where(hint => hint.Length > 0)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Take(1)
-                .ToArray();
-        }
         return string.Join(" · ", hints);
     }
 
@@ -52,10 +42,33 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
 
     private static bool IsTargetForm(string word, string targetWord)
     {
-        return word.Equals(targetWord, StringComparison.OrdinalIgnoreCase)
-            || word.StartsWith(targetWord, StringComparison.OrdinalIgnoreCase)
-            || (targetWord.EndsWith('e') && word.StartsWith(targetWord[..^1], StringComparison.OrdinalIgnoreCase));
+        if (word.Equals(targetWord, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Do not let a prefix match turn "go" into evidence for "good".
+        // This is intentionally a small inflection whitelist rather than a
+        // general stemmer: a displayed example must visibly contain the word
+        // or a conventional surface inflection of it.
+        if (word.StartsWith(targetWord, StringComparison.OrdinalIgnoreCase)
+            && IsInflectionSuffix(word[targetWord.Length..]))
+        {
+            return true;
+        }
+
+        return targetWord.EndsWith('e')
+            && word.StartsWith(targetWord[..^1], StringComparison.OrdinalIgnoreCase)
+            && IsInflectionSuffix(word[(targetWord.Length - 1)..]);
     }
+
+    private static bool IsInflectionSuffix(string suffix) => suffix.Equals("s", StringComparison.OrdinalIgnoreCase)
+        || suffix.Equals("es", StringComparison.OrdinalIgnoreCase)
+        || suffix.Equals("d", StringComparison.OrdinalIgnoreCase)
+        || suffix.Equals("ed", StringComparison.OrdinalIgnoreCase)
+        || suffix.Equals("ing", StringComparison.OrdinalIgnoreCase)
+        || suffix.Equals("er", StringComparison.OrdinalIgnoreCase)
+        || suffix.Equals("est", StringComparison.OrdinalIgnoreCase);
 
     [GeneratedRegex("[A-Za-z0-9]+(?:'[A-Za-z]+)?")]
     private static partial Regex WordToken();
