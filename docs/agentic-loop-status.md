@@ -36,6 +36,13 @@ Updated: 2026-09-01 03:12:00
   transcriptions, and no trustworthy safe/unsafe context labels, so sentence
   recovery, WER, trust-gate precision/recall, latency, learning quality, and
   independent-review acceptance remain unproven.
+- Independent review: `insufficient-evidence`. The reviewer verified the
+  visible index 1028 screenshot and the `burden` card improvement, but noted
+  that token count is only a proxy for OCR quality, the after context still
+  misreads `falls` as `alls`, and no per-variant geometry, confidence, or
+  manual transcription is retained. The replay Top-1 check remains a Chinese
+  substring comparison rather than an independently labeled safety metric;
+  no learning-card gate was exercised.
 - Next question: can a dual-transcribed screenshot batch determine whether
-  the selector improves context recovery while retaining at least 95% safety
-  precision for `ContextQualityGate`?
+  held-out target-line recovery improves while `ContextQualityGate` retains
+  at least 95% safety precision and 85% recall?
