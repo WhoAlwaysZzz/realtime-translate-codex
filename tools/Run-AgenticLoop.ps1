@@ -6,6 +6,7 @@ $log = Join-Path $repo 'docs\agentic-loop.log'
 $status = Join-Path $repo 'docs\agentic-loop-status.md'
 $pidPath = Join-Path $repo 'docs\agentic-loop.pid'
 $done = Join-Path $repo 'docs\agent-loop.accepted'
+$waitingForReview = Join-Path $repo 'docs\agent-loop.waiting-for-review.md'
 
 function Repair-Mojibake([string]$text) {
     if ([string]::IsNullOrEmpty($text)) { return $text }
@@ -17,13 +18,13 @@ function Repair-Mojibake([string]$text) {
 Set-Content -Encoding ascii $pidPath $PID
 $iteration = 0
 
-while (-not (Test-Path $done)) {
+while (-not (Test-Path $done) -and -not (Test-Path $waitingForReview)) {
     $iteration++
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     @("# Agentic Loop Status", "", "Updated: $stamp", "", "- Run: agent iteration $iteration", "- Stage: experimenting with card content, translation, and presentation", "- Goal: materially improve what the lookup card tells the user", "- Completion: user acceptance marker only", "- Next: inspect agent log for the current card-quality experiment") | Set-Content -Encoding utf8 $status
     Add-Content -Encoding utf8 $log "[$stamp] START agent iteration=$iteration"
     $prompt = @"
-You are the autonomous engineering agent for this repository. The ONLY product goal is improving lookup-card content quality as defined in docs/agentic-loop-goal.md. Do not spend an iteration revalidating OCR, replay plumbing, tray behavior, hotkeys, screenshot persistence, or other already-established infrastructure unless it directly blocks a card-content experiment. Read the current card pipeline and real game examples. Choose one high-value content hypothesis, implement a reversible architecture, translation-source, prompting, ranking, or presentation experiment, and preserve before/after card examples. Judge whether the result helps a user understand the selected word in its sentence; passing old technical tests is not evidence of product improvement. Build and run only the verification needed for that experiment, commit coherent changes, and update docs/agent-loop-status.md with the hypothesis, before/after examples, observed improvement or regression, and the next card-quality question. Do not ask the user for routine decisions. Never create or modify docs/agent-loop.accepted; only the user can mark final acceptance. Do not modify unrelated user changes.
+You are the autonomous engineering agent for this repository. The ONLY product goal is improving lookup-card content quality as defined in docs/agentic-loop-goal.md. Do not spend an iteration revalidating OCR, replay plumbing, tray behavior, hotkeys, screenshot persistence, or other already-established infrastructure unless it directly blocks a card-content experiment. Read the current card pipeline and real game examples. Choose one high-value content hypothesis, implement a reversible architecture, translation-source, prompting, ranking, or presentation experiment, and preserve before/after card examples. Judge whether the result helps a user understand the selected word in its sentence; passing old technical tests is not evidence of product improvement. Build and run only the verification needed for that experiment, commit coherent changes, and update docs/agentic-loop-status.md with the hypothesis, before/after examples, observed improvement or regression, and the next card-quality question. If no honest product experiment remains until an independent human completes a review, create docs/agent-loop.waiting-for-review.md stating the exact review file, what decision is required, and how to resume. Then update the status to `waiting for human review` and stop work; the runner will exit. Never create or modify docs/agent-loop.accepted; only the user can mark final acceptance. Do not modify unrelated user changes.
 "@
     $previousErrorAction = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -34,5 +35,11 @@ You are the autonomous engineering agent for this repository. The ONLY product g
     Start-Sleep -Seconds $PauseSeconds
 }
 
-Add-Content -Encoding utf8 $log "[$(Get-Date -Format s)] DONE after iterations=$iteration"
+if (Test-Path $waitingForReview) {
+    @("# Agentic Loop Status", "", "Updated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')", "", "- Run: waiting for human review", "- Stage: loop exited at a human-only decision checkpoint", "- Resume: complete the referenced review, remove docs/agent-loop.waiting-for-review.md, then start the loop again") | Set-Content -Encoding utf8 $status
+    Add-Content -Encoding utf8 $log "[$(Get-Date -Format s)] WAITING FOR HUMAN REVIEW after iterations=$iteration"
+}
+else {
+    Add-Content -Encoding utf8 $log "[$(Get-Date -Format s)] DONE after iterations=$iteration"
+}
 Remove-Item $pidPath -ErrorAction SilentlyContinue
