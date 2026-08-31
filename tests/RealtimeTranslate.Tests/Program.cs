@@ -514,7 +514,19 @@ static void UsageHintRequiresTargetBearingExample()
         "无法仅凭这一句确定；可能是：① n. 树皮、吠声  ② v. 吠叫",
         ambiguousLookup.Definitions,
         false);
-    AssertEqual(string.Empty, service.GetHint(ambiguousLookup, abstainedRanking, "bark"));
+    AssertEqual("n. 树皮、吠声：the bark of a dog · v. 吠叫：dogs bark at strangers", service.GetHint(ambiguousLookup, abstainedRanking, "bark"));
+
+    var threeWayLookup = ambiguousLookup with
+    {
+        Senses = [nounSense, verbSense, new DictionarySense("adj", "粗糙的", ["rough"], ["bark-like texture"])],
+    };
+    AssertEqual(string.Empty, service.GetHint(threeWayLookup, abstainedRanking, "bark"));
+
+    var incompleteComparison = ambiguousLookup with
+    {
+        Senses = [nounSense, new DictionarySense("v", "吠叫", ["make a barking sound"])],
+    };
+    AssertEqual(string.Empty, service.GetHint(incompleteComparison, abstainedRanking, "bark"));
 
     var definitionOnly = new DictionarySense("v", "移动", ["move from one place to another"]);
     var definitionLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [definitionOnly]);
@@ -677,7 +689,10 @@ static void ExportRenderedCardAudit(string outputPath)
             WordBreakdown: insight.Breakdown, WordFamily: insight.Family,
             ContextHint: hint, FrequencyBand: lookup.FrequencyBand,
             InsightEvidence: evidence);
-        writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}\t{presentation.InsightEvidence}");
+        var evidenceColumn = string.IsNullOrWhiteSpace(presentation.InsightEvidence)
+            ? "-"
+            : presentation.InsightEvidence;
+        writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}\t{evidenceColumn}");
     }
 }
 

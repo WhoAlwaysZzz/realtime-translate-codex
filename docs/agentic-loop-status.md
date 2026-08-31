@@ -1,40 +1,46 @@
 # Agentic Loop Status
 
-Updated: 2026-09-01 00:49:14
+Updated: 2026-09-01 01:19:00
 
-- Run: agent iteration 7
+- Run: agent iteration 9
 - Stage: improving usable context OCR and learning-card quality
 - Goal: reliable sentence understanding plus memorable word learning
 - Independent review: required after each relevant committed change
 - Completion: automatic threshold or user acceptance
-- Hypothesis (iteration 7): WordNet usage examples must be gated by the same
-  selected-sense boundary as the first-screen meaning. An abstaining context
-  ranker must not expose examples from every dictionary sense as a 90% learning
-  claim.
-- Change: `WordNetExampleUsageHintService` now returns no hint when
-  `SenseRankingResult.SelectedSense` is null; target-bearing and inflected
-  examples remain available for a selected sense. Added a regression fixture for
-  ambiguous `bark` plus existing `dwindle`/false-prefix cases.
-- Metric delta (200-word rendered-card audit): ambiguous cards with a
-  `用法/语境` learning line 33 → 0 (−33; 100% removal of unsafe mixed-sense
-  hints). Source-bearing learning lines 113 → 80 (−33), an intentional
-  fail-closed tradeoff. OCR replay evidence is unchanged: 20/20 exact OCR,
-  15/20 context Top-1 on the labeled 20-sample batch; this iteration did not
-  claim an OCR gain.
-- Real examples: `adolescent` and `attendant` previously showed an abstaining
-  first screen plus WordNet examples that implicitly selected one POS; they now
-  show only the explicit candidate meanings. `bark` with no trusted context
-  abstains without a learning usage line, while `bark` in “The dog began to bark”
-  keeps the selected verb sense and contextual gloss.
-- Regression / limitation: 33 ambiguous cards lose a potentially useful usage
-  example until sense selection or a separately labeled multi-sense study
-  insight exists. No OCR, crop, or latency path was changed. Independent
-  read-only review is still required; current review artifacts are forms without
-  completed verdicts, so automatic completion criteria are not met.
-- Verification: `dotnet build RealtimeTranslateCodex.sln -c Release --no-restore`
-  (0 warnings, 0 errors); focused test runner passes all 23 checks; before/after
-  audit artifacts are `artifacts/card-audit-before-sense-bound-learning-20260901.tsv`
-  and `artifacts/card-audit-sense-bound-learning-20260901.tsv`.
-- Next question: can we add a separately sourced, explicitly multi-sense
-  learning insight (with per-sense labels and evidence) without reintroducing
-  ambiguity into the first screen?
+- Hypothesis: when the OCR/context trust gate abstains, source-backed study
+  examples can still help memory if they are explicitly and completely bound to
+  every candidate sense. A partial set of examples must remain omitted because
+  it would quietly choose the sense that the first screen declined to choose.
+- Change: `WordNetExampleUsageHintService` now permits a study-only comparison
+  only for exactly two candidate senses, only when each has at least one
+  target-bearing WordNet example, and prefixes each example group with that
+  sense's POS and Chinese definition. The first-screen meaning continues to
+  abstain and says `未用于筛选`. Selected-sense cards keep their existing
+  compact, unlabeled examples.
+- Metric delta: the 200-word rendered-card audit moves from 80 to 90
+  source-bearing learning hooks (+10, 40.0% to 45.0%) relative to
+  `artifacts/card-audit-sense-bound-learning-20260901.tsv`. Exactly 10 formerly
+  blank abstaining two-sense cards gain a complete contrast in
+  `artifacts/card-audit-multisense-learning-20260901.tsv`; 23 other abstaining
+  cards remain honestly blank because they have three or more senses or an
+  unsupported candidate. This is not the required 30-word learning evaluation
+  and does not claim the 70% goal is met.
+- Real examples: untrusted `bleach` now keeps `无法仅凭这一句确定` and adds
+  `v. 漂白、变白：bleach the laundry ... · n. 漂白、漂白剂：a complete
+  bleach ...`; `compact` likewise contrasts adjective and verb examples.
+  The `bark` regression fixture yields the same two labeled alternatives.
+  A three-way `bark` fixture and a two-way fixture with a missing counterpart
+  both omit the learning line.
+- Regressions/limits: the 10 examples are dictionary evidence, not real-game
+  context, and no real screenshot/gold corpus was changed. Learning-hook
+  coverage is still far below the 70% target. The only independent review
+  outcomes on record are `insufficient-evidence`; the blind-review files have
+  no completed decisions. Automatic acceptance criteria are not met. Do not
+  create `docs/agent-loop.auto-accepted.md` or modify `docs/agent-loop.accepted`.
+- Verification: focused test runner passes all 22 checks; `dotnet build
+  RealtimeTranslateCodex.sln -c Release --no-restore` completes with 0 warnings
+  and 0 errors. New regression checks cover complete two-way, incomplete
+  two-way, and three-way abstaining examples.
+- Next question: in a 30-word, independent learning review with real game
+  screenshots, do these explicitly labeled two-way comparisons improve useful
+  learning without reviewers treating them as a hidden current-sentence gloss?

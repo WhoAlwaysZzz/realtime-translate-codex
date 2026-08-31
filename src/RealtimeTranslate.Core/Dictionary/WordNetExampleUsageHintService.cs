@@ -7,25 +7,52 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
 {
     public string GetHint(DictionaryLookupResult lookup, SenseRankingResult ranking, string targetWord)
     {
-        // A usage example is a sense-specific learning claim.  When ranking
-        // abstains, examples from all dictionary senses can silently steer the
-        // learner toward one of the meanings that the main card refused to
-        // choose.  Keep the same trust boundary for both layers: no selected
-        // sense means no usage hint.
-        if (ranking.SelectedSense is null)
+        // An abstaining ranker may still expose a study-only comparison, but
+        // every example must remain attached to its own sense. This keeps the
+        // main definition undecided while giving the learner a useful way to
+        // distinguish the candidates.
+        var isMultiSenseComparison = ranking.SelectedSense is null;
+        var senses = isMultiSenseComparison
+            ? lookup.Senses ?? []
+            : new[] { ranking.SelectedSense! };
+
+        // A partial comparison is not neutral: displaying evidence for only
+        // one candidate can quietly recreate the sense choice that the main
+        // card deliberately abstained from. Restrict this study-only form to
+        // a complete, compact two-way contrast.
+        if (isMultiSenseComparison && senses.Count != 2)
         {
             return string.Empty;
         }
 
-        var senses = new[] { ranking.SelectedSense };
         var hints = senses
-            .SelectMany(sense => sense.EnglishExamples ?? [])
-            .Where(example => ContainsTarget(example, targetWord))
-            .Select(example => ToShortHint(example, targetWord))
+            .Select(sense =>
+            {
+                var examples = (sense.EnglishExamples ?? [])
+                    .Where(candidate => ContainsTarget(candidate, targetWord))
+                    .Select(candidate => ToShortHint(candidate, targetWord))
+                    .Where(hint => hint.Length > 0)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(2)
+                    .ToArray();
+                if (examples.Length == 0)
+                {
+                    return string.Empty;
+                }
+
+                return isMultiSenseComparison
+                    ? $"{sense.PartOfSpeech}. {sense.ShortDefinition}：{string.Join(" · ", examples)}"
+                    : string.Join(" · ", examples);
+            })
             .Where(hint => hint.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(2)
             .ToArray();
+        if (isMultiSenseComparison && hints.Length != senses.Count)
+        {
+            return string.Empty;
+        }
+
         return string.Join(" · ", hints);
     }
 
