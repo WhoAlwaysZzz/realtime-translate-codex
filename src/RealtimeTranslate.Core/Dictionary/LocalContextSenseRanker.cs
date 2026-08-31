@@ -17,6 +17,11 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         "to", "can", "could", "may", "might", "must", "shall", "should", "will", "would",
     };
 
+    private static readonly HashSet<string> NounDeterminers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a", "an", "the", "my", "your", "his", "her", "its", "our", "their",
+    };
+
     // When the selected word is masked out of the OCR context, a nearby noun
     // can still reveal an attributive adjective use (for example,
     // "staunch supporter"). Keep this list deliberately small and concrete so
@@ -158,10 +163,20 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             {
                 score += 4;
             }
-            if ((previous.Equals("a", StringComparison.OrdinalIgnoreCase)
-                || previous.Equals("an", StringComparison.OrdinalIgnoreCase)
-                || previous.Equals("the", StringComparison.OrdinalIgnoreCase))
-                && sense.PartOfSpeech == "n")
+            if (NounDeterminers.Contains(previous) && sense.PartOfSpeech == "n")
+            {
+                score += 4;
+            }
+
+            // A visible target can also be the head of a determiner plus
+            // participial modifier noun phrase (for example, "the shattered
+            // dome"). Require the determiner immediately before an -ed/-ing
+            // modifier so an arbitrary nearby adjective cannot manufacture a
+            // noun reading.
+            if (sense.PartOfSpeech == "n"
+                && index >= 2
+                && NounDeterminers.Contains(words[index - 2])
+                && IsParticipialModifier(previous))
             {
                 score += 4;
             }
@@ -258,6 +273,11 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         return Regex.IsMatch(tail, @"\b(?:a|an|the|my|your|his|her|its|our|their)\s*$", RegexOptions.IgnoreCase)
             || Regex.IsMatch(tail, @"\b(?:a|an|the)\s+[A-Za-z]+\s*$", RegexOptions.IgnoreCase);
     }
+
+    private static bool IsParticipialModifier(string word) =>
+        word.Length >= 5
+        && (word.EndsWith("ed", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("ing", StringComparison.OrdinalIgnoreCase));
 
     private static string Number(int index) => index switch { 0 => "①", 1 => "②", _ => "③" };
 

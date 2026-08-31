@@ -485,6 +485,25 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var crackShot = ranker.Rank(crackLookup, "crack", "Lopera is a crack shot.");
     AssertTrue(crackShot.IsConfident, "an adjective plus a known head noun should be rankable");
     AssertEqual("adj", crackShot.SelectedSense?.PartOfSpeech);
+
+    var fortressLookup = new DictionaryLookupResult(true, "fortress", ["n. 城堡、要塞", "v. 筑要塞"], [
+        new DictionarySense("n", "城堡、要塞", ["a fortified defensive structure"]),
+        new DictionarySense("v", "筑要塞", ["secure with defensive works"]),
+    ], 2);
+    var possessiveFortress = ranker.Rank(fortressLookup, "fortress", "Finally, he is back in his fortress.");
+    AssertTrue(possessiveFortress.IsConfident, "a visible possessive noun frame should select the noun sense");
+    AssertEqual("n", possessiveFortress.SelectedSense?.PartOfSpeech);
+
+    var domeLookup = new DictionaryLookupResult(true, "dome", ["n. 圆顶", "v. 加圆顶"], [
+        new DictionarySense("n", "圆顶", ["a rounded roof"]),
+        new DictionarySense("v", "加圆顶", ["cover with a rounded roof"]),
+    ], 2);
+    var modifiedDome = ranker.Rank(domeLookup, "dome", "Its seats were buried under the shattered dome.");
+    AssertTrue(modifiedDome.IsConfident, "a determiner plus participial modifier should identify a visible noun head");
+    AssertEqual("n", modifiedDome.SelectedSense?.PartOfSpeech);
+
+    var unsupportedDome = ranker.Rank(domeLookup, "dome", "They shattered dome defenses yesterday.");
+    AssertTrue(!unsupportedDome.IsConfident, "an -ed word without the determiner frame must not force a noun sense");
 }
 
 static void ContextQualityGateRejectsOcrDebris()
