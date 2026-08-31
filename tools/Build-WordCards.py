@@ -274,21 +274,27 @@ def main() -> None:
     advanced_total = advanced_family = 0
     for word in sorted(entries):
         lemma, inflection_code = lemma_of.get(word, (word, ""))
+        evidence_source = ""
+        confidence = ""
         derivations = sorted(incoming.get(lemma, []), key=lambda item: (entries[item[0]]["rank"], len(item[0]), item[0]))
         if lemma != word:
             base = lemma
             suffix = word[len(lemma):] if word.startswith(lemma) else ""
             suffix_text = f" + -{suffix}" if suffix else ""
             breakdown = f"{lemma}（{entries[lemma]['meaning']}）{suffix_text}（词形变化）"
+            evidence_source, confidence = "ECDICT inflection table", "0.90"
         elif derivations:
             base, affix, kind = derivations[0]
             affix_meaning = PREFIXES[affix] if kind == "prefix" else SUFFIXES[affix][0]
             marker = f"{affix}-（{affix_meaning}）"
             breakdown = f"{marker} + {base}" if kind == "prefix" else f"{base} + -{affix}（{affix_meaning}）"
+            evidence_source, confidence = "MorphyNet (2021) derivational relation", "0.85"
         else:
             base = lemma
             morpholex_result = morpholex_breakdown(word)
             breakdown = morpholex_result[0] if morpholex_result else ""
+            if breakdown:
+                evidence_source, confidence = "MorphoLex (2018) analysis", "0.80"
 
         family: list[str] = []
         tiers = [
@@ -310,9 +316,12 @@ def main() -> None:
         if word in curated:
             breakdown, curated_family, context = curated[word]
             family = [candidate for candidate in curated_family.split(",") if candidate and candidate != word]
+            # Curated hints do not yet contain per-item external citations.
+            # Do not claim a source or surface them until that evidence exists.
+            evidence_source, confidence = "", ""
         else:
             context = ""
-        output_rows.append((word, breakdown, ",".join(family[:3]), context))
+        output_rows.append((word, breakdown, ",".join(family[:3]), context, evidence_source, confidence))
         tags = entries[word]["tags"]
         if "cet6" in tags and "cet4" not in tags and len(word) >= 6:
             advanced_total += 1
@@ -321,7 +330,7 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8", newline="") as target:
         writer = csv.writer(target, delimiter="\t", lineterminator="\n")
-        writer.writerow(("# word", "breakdown", "family", "context hint"))
+        writer.writerow(("# word", "breakdown", "family", "context hint", "evidence source", "confidence"))
         writer.writerows(output_rows)
 
     coverage = advanced_family / advanced_total if advanced_total else 0

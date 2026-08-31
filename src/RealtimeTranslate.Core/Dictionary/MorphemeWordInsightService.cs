@@ -31,16 +31,21 @@ public sealed class MorphemeWordInsightService : IWordInsightService
                 continue;
             }
 
-            var hasExplicitSource = fields.Length >= 5 && !string.IsNullOrWhiteSpace(fields[4]);
-            var source = hasExplicitSource ? fields[4].Trim() : "MorphoLex (2018)";
-            var confidence = fields.Length >= 6 && double.TryParse(fields[5], out var parsed)
-                ? Math.Clamp(parsed, 0, 1)
-                : (fields[1].Trim().Length > 0 || fields[2].Trim().Length > 0 || fields[3].Trim().Length > 0 ? 0.75 : 0);
-            // The legacy four-column export has no provenance for its
-            // scenario-specific context hint. MorphoLex supports morphology,
-            // not invented game scenes; omit that weak field unless a source
-            // is explicitly attached to the row.
-            var contextHint = hasExplicitSource ? fields[3].Trim() : string.Empty;
+            // Four-column files combine ECDICT inflections, MorphyNet
+            // relations, MorphoLex analyses, and locally curated hints.  The
+            // row no longer says which field came from which source, so a
+            // runtime label such as "MorphoLex (2018)" would be fabricated
+            // provenance.  Fail closed: the dictionary can still provide a
+            // separately attributed WordNet example, but this row must not
+            // become a learning claim until the generator writes field-level
+            // evidence.
+            var parsed = 0d;
+            var hasExplicitEvidence = fields.Length >= 6
+                && !string.IsNullOrWhiteSpace(fields[4])
+                && double.TryParse(fields[5], out parsed);
+            var source = hasExplicitEvidence ? fields[4].Trim() : string.Empty;
+            var confidence = hasExplicitEvidence ? Math.Clamp(parsed, 0, 1) : 0;
+            var contextHint = hasExplicitEvidence ? fields[3].Trim() : string.Empty;
 
             _entries[word] = new WordInsight(
                 fields[1].Trim(),

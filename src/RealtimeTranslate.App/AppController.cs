@@ -781,9 +781,10 @@ public sealed class AppController : IDisposable
     private WordInsight LookupInsight(NormalizedWord normalized, DictionaryLookupResult lookup)
     {
         var surface = _wordInsightService.Lookup(normalized.DisplayWord);
-        return surface != WordInsight.Empty
+        var insight = surface != WordInsight.Empty
             ? surface
             : _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
+        return insight.HasEvidence ? insight : WordInsight.Empty;
     }
 
     private void UnregisterCommandHotkeys()

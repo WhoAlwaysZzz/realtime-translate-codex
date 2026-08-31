@@ -295,7 +295,7 @@ static void WordCardEvidenceIsSurfacedWithConfidence()
     File.WriteAllText(legacyFixture, "ineffable\tbreakdown\teffable\tsacred mysteries\n");
     var legacyInsight = new MorphemeWordInsightService(legacyFixture).Lookup("ineffable");
     AssertEqual(string.Empty, legacyInsight.ContextHint);
-    AssertEqual("MorphoLex (2018)", legacyInsight.EvidenceSource);
+    AssertTrue(!legacyInsight.HasEvidence, "legacy row without field-level provenance must not become a sourced learning claim");
 
     var explicitFixture = Path.Combine(root, "explicit-word-cards.tsv");
     File.WriteAllText(explicitFixture, "ineffable\tbreakdown\teffable\tsacred mysteries\tWordNet examples\t0.9\n");
@@ -555,7 +555,7 @@ static void RandomRenderedCardsMeetVisibleCoverageTarget()
     var normalizer = new BasicWordNormalizer();
     var words = File.ReadAllLines(Path.Combine(FindRepositoryRoot(), "tests", "Data", "advanced-word-audit-sample.txt"))
         .Where(line => line.Length > 0).ToArray();
-    var withLearningHook = 0;
+    var withSourcedLearningHook = 0;
 
     foreach (var word in words)
     {
@@ -567,10 +567,19 @@ static void RandomRenderedCardsMeetVisibleCoverageTarget()
         {
             insight = insights.Lookup(lookup.EntryWord);
         }
+        if (!insight.HasEvidence)
+        {
+            insight = WordInsight.Empty;
+        }
         var hint = insight.ContextHint;
+        var evidence = insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty;
         if (hint.Length == 0 && insight.Breakdown.Length == 0)
         {
             hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            if (hint.Length > 0)
+            {
+                evidence = "WordNet example usage；置信度 90%";
+            }
         }
         var presentation = new LookupPresentation(
             word,
@@ -581,16 +590,17 @@ static void RandomRenderedCardsMeetVisibleCoverageTarget()
             WordBreakdown: insight.Breakdown,
             WordFamily: insight.Family,
             ContextHint: hint,
-            FrequencyBand: lookup.FrequencyBand);
+            FrequencyBand: lookup.FrequencyBand,
+            InsightEvidence: evidence);
         var visible = LookupCardTextFormatter.VisibleLines(presentation);
 
         AssertTrue(visible.Count >= 2, $"rendered card '{word}' has no definition");
         AssertTrue(visible[0].Contains('★'), $"rendered card '{word}' has no frequency band");
         AssertTrue(!string.Join(" | ", visible).Contains("词基：", StringComparison.Ordinal), $"rendered card '{word}' exposes a fake base line");
-        withLearningHook += insight.Breakdown.Length > 0 || hint.Length > 0 ? 1 : 0;
+        withSourcedLearningHook += hint.Length > 0 && evidence.Length > 0 ? 1 : 0;
     }
 
-    AssertTrue(withLearningHook >= 190, $"expected at least 95% visible morphology-or-usage coverage, got {withLearningHook}/{words.Length}");
+    AssertTrue(withSourcedLearningHook >= 190, $"expected at least 95% source-bearing learning-hook coverage, got {withSourcedLearningHook}/{words.Length}");
 }
 
 static void ExportRenderedCardAudit(string outputPath)
@@ -617,16 +627,25 @@ static void ExportRenderedCardAudit(string outputPath)
         {
             insight = insights.Lookup(lookup.EntryWord);
         }
+        if (!insight.HasEvidence)
+        {
+            insight = WordInsight.Empty;
+        }
         var hint = insight.ContextHint;
+        var evidence = insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty;
         if (hint.Length == 0 && insight.Breakdown.Length == 0)
         {
             hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            if (hint.Length > 0)
+            {
+                evidence = "WordNet example usage；置信度 90%";
+            }
         }
         var presentation = new LookupPresentation(
             word, $"lemma: {lookup.EntryWord}", ranking.Definitions, ranking.PrimaryDefinition, 1,
             WordBreakdown: insight.Breakdown, WordFamily: insight.Family,
             ContextHint: hint, FrequencyBand: lookup.FrequencyBand,
-            InsightEvidence: insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty);
+            InsightEvidence: evidence);
         writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}\t{presentation.InsightEvidence}");
     }
 }
