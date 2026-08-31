@@ -30,6 +30,11 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
 
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)
     {
+        if (!ContextQualityGate.IsSafe(context))
+        {
+            context = string.Empty;
+        }
+
         var senses = lookup.Senses ?? [];
         if (senses.Count == 0)
         {

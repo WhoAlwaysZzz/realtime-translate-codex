@@ -414,6 +414,10 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(!ambiguous.WasContextAligned, "unsupported context must not be marked as aligned");
     AssertTrue(ambiguous.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "unsupported context should show the abstention explanation");
 
+    var fragmentary = ranker.Rank(staunchLookup, "staunch", "He stands in s a e Sao Paulo.");
+    AssertTrue(!fragmentary.IsConfident, "fragmentary OCR must not steer sense ranking");
+    AssertTrue(!fragmentary.WasContextAligned, "fragmentary OCR must not be marked aligned");
+
     var crackLookup = new DictionaryLookupResult(true, "crack", ["n. 裂缝", "v. 爆裂", "adj. 第一流的"], [
         new DictionarySense("n", "裂缝", ["a narrow opening"]),
         new DictionarySense("v", "爆裂", ["break suddenly"]),
