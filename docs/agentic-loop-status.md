@@ -39,6 +39,12 @@ Updated: 2026-09-01 02:11:00
 - Verification: Debug build succeeded (four transient MSB3026 retries while a
   previous replay child still held the test DLL); focused test suite passed
   22/22; full production replay completed in 149 seconds with 0 failures.
+- Independent review: `insufficient-evidence`. The reviewer confirmed the
+  `barked` unit regression and unchanged 20-screen replay counts, but found
+  no committed real screenshot where an inflected selected form changes the
+  card. The archive also lacks committed screenshots and dual transcriptions;
+  its Chinese-substring Top-1 check is not a trust-gate precision/recall
+  metric. The separate 30-word learning evaluation remains unaddressed.
 - Next question: can a dual-transcribed screenshot corpus reveal whether
   target-form-aware anchoring recovers valid context coverage, without
   admitting any unanchored topical-sense selection?
