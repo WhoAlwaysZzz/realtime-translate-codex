@@ -65,6 +65,17 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         }
 
         var contextTokens = Tokens(context).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var targetVisibleInContext = WordToken().Matches(context)
+            .Any(match => match.Value.Equals(targetWord, StringComparison.OrdinalIgnoreCase));
+        var hasMaskedFrame = IsMaskedNounFrame(context);
+        // A readable crop is not automatically evidence for this lookup. If
+        // the selected word was removed from the crop and no recognized frame
+        // remains, topical overlap (for example "dog" near bark) can still
+        // manufacture a confident but unrelated sense.
+        if (!targetVisibleInContext && !hasMaskedFrame)
+        {
+            return Abstain(senses);
+        }
         var ordered = senses
             .Select((sense, index) => new RankedSense(sense, Score(sense, targetWord, context, contextTokens), index))
             .OrderByDescending(item => item.Score)
@@ -89,6 +100,11 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         // example, crack's adjective "first-rate" sense behind noun and verb
         // entries), while more than three turns the first screen back into a
         // dictionary dump.
+        return Abstain(senses);
+    }
+
+    private static SenseRankingResult Abstain(IReadOnlyList<DictionarySense> senses)
+    {
         var candidates = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
         // Make the epistemic boundary readable before the candidate list.
         // A user must not mistake these dictionary alternatives for a selected

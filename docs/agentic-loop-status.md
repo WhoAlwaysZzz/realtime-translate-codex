@@ -1,45 +1,35 @@
 # Agentic Loop Status
 
-Updated: 2026-09-01 02:05:00
+Updated: 2026-09-01 02:12:00
 
-- Run: agent iteration 9
+- Run: agent iteration 11
 - Stage: improving usable context OCR and learning-card quality
 - Goal: reliable sentence understanding plus memorable word learning
 - Independent review: required after each relevant committed change
 - Completion: automatic threshold or user acceptance
-- Hypothesis: a fixed `WordNet example usage; confidence 90%` label is not
-  evidence-backed because individual hints differ in whether their retained
-  example contains the lemma itself or only a conventional inflection. The
-  card must expose the actual source and verification scope instead of a
-  blanket confidence claim.
-- Change: `IUsageHintService` now returns `UsageHintResult`, which binds hint
-  text to `Open English WordNet 2025`, target-form verification, and a derived
-  confidence. A direct target match yields 90%; conventional inflections lower
-  confidence according to the retained-example coverage. Empty evidence is
-  fail-closed. Both OCR lookup and manual lookup use this result; the context
-  trust gate and abstention behavior are unchanged.
-- Metric delta: source-bearing learning hints remain 90/200 in
-  `artifacts/card-audit-provenance-derived-20260901.tsv` (no coverage claim).
-  Their provenance is now auditable: 68 show `例句直含目标词` at 90%, and 22
-  show `例句含常规词形` at a derived 75%–85%, rather than all being labeled
-  90%. This is provenance-quality improvement, not a learning acceptance
-  result.
-- Real examples: `bleach` remains an abstaining two-sense card and labels its
-  WordNet comparison as `例句含常规词形；置信度 85%` because `bleached` is one
-  retained example. `compact` behaves the same for `compacts`. A selected
-  `dwindle` usage with only `dwindled` is labeled 75%. Direct matches such as
-  `abrupt` retain 90% with the explicit direct-match label.
-- Regressions/limits: no screenshot or gold-corpus OCR data changed, and the
-  required 50-screenshot / 30-word independent review datasets do not exist
-  in this repository. The latest independent reviewer outcome remains
-  `insufficient-evidence`; its cited absence of actual card captures and
-  completed review decisions is unresolved. Do not create
-  `docs/agent-loop.auto-accepted.md` or modify `docs/agent-loop.accepted`.
-- Verification: `dotnet build RealtimeTranslateCodex.sln -c Release
-  --no-restore` completed with 0 warnings and 0 errors; the executable focused
-  suite passed 22/22. Tests cover direct forms, inflections, empty evidence,
-  complete two-way comparisons, incomplete comparisons, and three-way
-  abstention.
-- Next question: can a reviewer assess captured first-screen cards against a
-  real, dual-transcribed game-screenshot corpus before further learning-card
-  wording or confidence tuning?
+- Hypothesis: a readable OCR crop without the selected token or a recognized
+  masked-word boundary can still let topical overlap choose a multi-sense
+  meaning. Context steering must require an anchor; otherwise the card must
+  abstain.
+- Change: `LocalContextSenseRanker` now rejects unanchored multi-sense context
+  before scoring. Target-visible text and the existing masked noun-frame rule
+  remain eligible. Added a regression for `bark` with `The dog runs toward the
+  stranger.` and changed the prior `staunch ... supporter` case to require
+  abstention because its crop has no trustworthy boundary anchor.
+- Metric delta: on the bounded six-sample replay probe
+  (`artifacts/context-anchor-probe-r2-20260901.json`), OCR exact remained 6/6,
+  replay failures 0/6, expected abstention 1/1, while contextual Top-1 changed
+  from 3/5 to 2/5. The one lost Top-1 is the former `staunch` false-confidence
+  case; this is an intentional safety tradeoff, not an acceptance result.
+- Real examples: `parrot` and `bark` retain anchored Top-1 readings; noisy
+  `thrust` still abstains; `frail` with `th` OCR debris and `staunch` without
+  the target/boundary now abstain instead of presenting a main sense.
+- Regressions/limits: this probe is six archived real-game screenshots, not the
+  required 50-image dual-transcribed corpus. No WER, gate precision/recall,
+  rendered-card capture, or independent learning verdict is established. The
+  PowerShell 7 runner is required because Windows PowerShell 5.1 misparses the
+  UTF-8 Chinese literals in the verifier.
+- Verification: Debug build completed with 0 warnings and 0 errors; focused
+  suite passed 22/22; replay probe completed with 0 timeouts and 0 failures.
+- Next question: can geometry-aware masked-word anchors recover safe context
+  coverage for cases like `staunch` without reopening topical-overlap errors?

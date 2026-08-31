@@ -380,12 +380,17 @@ static void ContextRankerSelectsOrAbstainsHonestly()
         new DictionarySense("adj", "忠实", ["loyal and committed" ]),
     ], 2);
     var staunch = ranker.Rank(staunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
-    AssertTrue(staunch.IsConfident, "masked adjective context should be confidently ranked");
-    AssertEqual("本句中，staunch作形容词，指“忠实的”。", staunch.PrimaryDefinition);
+    AssertTrue(!staunch.IsConfident, "a nearby adjective head without the target or a boundary frame must not select a sense");
+    AssertTrue(staunch.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "unanchored adjective context should explicitly abstain");
 
     var genericSoldier = ranker.Rank(staunchLookup, "staunch", "No soldier of Zeno would take pride in an execution.");
     AssertTrue(!genericSoldier.IsConfident, "an unrelated generic soldier must not force an adjective sense");
     AssertTrue(genericSoldier.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "generic soldier context should explicitly abstain");
+
+    var unanchoredDog = ranker.Rank(lookup, "bark", "The dog runs toward the stranger.");
+    AssertTrue(!unanchoredDog.IsConfident, "a readable but unanchored crop must not let a nearby dog choose bark's verb sense");
+    AssertTrue(!unanchoredDog.WasContextAligned, "an unanchored crop must not be described as aligned");
+    AssertTrue(unanchoredDog.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "an unanchored crop should explicitly abstain");
 
     var richBarkLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠、叫骂、喊出、剥树皮"], [
         new DictionarySense("n", "树皮、吠声", ["the sound made by a dog", "tough protective covering of trees"]),
@@ -399,7 +404,7 @@ static void ContextRankerSelectsOrAbstainsHonestly()
         new DictionarySense("adj", "坚固的、坚强的、忠实的", ["firm and dependable especially in loyalty"]),
     ], 1);
     var conciseStaunch = ranker.Rank(richStaunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
-    AssertEqual("本句中，staunch作形容词，指“忠实的”。", conciseStaunch.PrimaryDefinition);
+    AssertTrue(!conciseStaunch.IsConfident, "a rich entry must retain the same context anchor requirement");
 
     var conciseReviewed = new (string Word, string Pos, string Definition, string Expected)[]
     {
