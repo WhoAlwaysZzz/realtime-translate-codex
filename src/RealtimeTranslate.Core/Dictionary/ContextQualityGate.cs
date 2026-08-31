@@ -21,9 +21,14 @@ public static partial class ContextQualityGate
         // OCR crops commonly split words into one-character debris ("s a e")
         // or emit isolated two-character noise. Keep the gate conservative:
         // ordinary function words (a, an, am, I, to, of, ...) are allowed.
-        var suspicious = tokens.Count(token => token.Length == 1 && !AllowedSingle.Contains(token)
-            || token.Length == 2 && !AllowedShort.Contains(token));
-        if (suspicious > 0 && suspicious * 5 > tokens.Length)
+        // A lone unexpected letter ("th slender", "s a e") is not useful
+        // sentence context.  More importantly, letting it pass merely because
+        // a long noisy crop contains enough ordinary words can let a nearby
+        // keyword select the main sense.  This is deliberately a hard reject:
+        // the surrounding subtitle is optional, whereas a wrong main gloss is
+        // not recoverable at a glance.
+        if (tokens.Any(token => token.Length == 1 && !AllowedSingle.Contains(token)
+            || token.Length == 2 && !AllowedShort.Contains(token)))
         {
             return false;
         }

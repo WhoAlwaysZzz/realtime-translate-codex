@@ -17,6 +17,7 @@ var tests = new (string Name, Action Body)[]
     ("dictionary covers common desktop and developer words", DictionaryCoversCommonDesktopAndDeveloperWords),
     ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
     ("structured dictionary retains senses and frequency", StructuredDictionaryRetainsSensesAndFrequency),
+    ("context quality gate rejects OCR debris without rejecting readable dialogue", ContextQualityGateRejectsOcrDebris),
     ("context ranker selects or abstains honestly", ContextRankerSelectsOrAbstainsHonestly),
     ("rendered card uses frequency and short usage fallback", RenderedCardUsesFrequencyAndShortUsageFallback),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
@@ -369,6 +370,10 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var single = ranker.Rank(singleSense, "dwindle", "Their savings dwindled away.");
     AssertEqual("本句中，dwindle作动词，指“逐渐减少、缩小”。", single.PrimaryDefinition);
 
+    var untrustedSingle = ranker.Rank(singleSense, "dwindle", "Their savings d w i n d l e d away.");
+    AssertEqual("v. 逐渐减少、缩小", untrustedSingle.PrimaryDefinition);
+    AssertTrue(!untrustedSingle.WasContextAligned, "untrusted OCR must not be described as an in-sentence reading for a single-sense word");
+
     var staunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住", "adj. 忠实"], [
         new DictionarySense("v", "止住", ["stop or check the flow of blood" ]),
         new DictionarySense("adj", "忠实", ["loyal and committed" ]),
@@ -438,6 +443,19 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     var crack = ranker.Rank(crackLookup, "crack", "No soldier of Zeno would take pride in an execution.");
     AssertTrue(!crack.IsConfident, "unrelated context must not force crack's adjective sense");
     AssertTrue(crack.PrimaryDefinition.Contains("③ adj. 第一流的", StringComparison.Ordinal), "an abstaining card should retain the third concise candidate");
+}
+
+static void ContextQualityGateRejectsOcrDebris()
+{
+    AssertTrue(ContextQualityGate.IsSafe("The dog began to bark at the stranger."), "complete readable dialogue should pass the context gate");
+    AssertTrue(ContextQualityGate.IsSafe("She looks at the frail, slender girl in front of her."), "readable dialogue with an allowed article should pass the context gate");
+
+    // These are real replay outputs, not synthetic dictionary examples.  A
+    // long crop must not dilute isolated OCR debris into an apparently safe
+    // context merely because it also contains ordinary English words.
+    AssertTrue(!ContextQualityGate.IsSafe("Her voice softens as she looks at th slender girl in front of her."), "truncated OCR token must fail the context gate");
+    AssertTrue(!ContextQualityGate.IsSafe("Sonetto The islanders were vulnerability then exp 01 e arms. o war, their beliefs shattered, and they were welcomed by Manus."), "a split OCR letter must fail even in a long crop");
+    AssertTrue(!ContextQualityGate.IsSafe("He stands in s a e Sao Paulo."), "one-character OCR debris must fail the context gate");
 }
 
 static void RenderedCardUsesFrequencyAndShortUsageFallback()

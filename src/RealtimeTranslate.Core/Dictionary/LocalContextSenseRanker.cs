@@ -30,7 +30,8 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
 
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)
     {
-        if (!ContextQualityGate.IsSafe(context))
+        var contextIsSafe = ContextQualityGate.IsSafe(context);
+        if (!contextIsSafe)
         {
             context = string.Empty;
         }
@@ -44,6 +45,18 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
 
         if (senses.Count == 1)
         {
+            // A dictionary entry with one sense can still be useful without
+            // OCR context, but do not present it as a verified in-sentence
+            // reading when the only context failed the trust gate.
+            if (!contextIsSafe)
+            {
+                return new SenseRankingResult(
+                    Format(senses[0]),
+                    [Format(senses[0])],
+                    true,
+                    senses[0]);
+            }
+
             return new SenseRankingResult(
                 DescribeInSentence(senses[0], targetWord, context),
                 [Format(senses[0])],
