@@ -53,16 +53,19 @@ public static class LookupCardTextFormatter
             core.Add(metadata);
         }
 
-        var usage = Usage(presentation);
-        if (!string.IsNullOrWhiteSpace(usage))
-        {
-            core.Add(usage);
-        }
-
         var evidence = Evidence(presentation);
         if (!string.IsNullOrWhiteSpace(evidence))
         {
             core.Add(evidence);
+        }
+
+        // Provenance is part of the trust contract for learning content. When
+        // the five-block first screen is full, keep the source-bearing line
+        // and let the optional usage example yield space for it.
+        var usage = Usage(presentation);
+        if (!string.IsNullOrWhiteSpace(usage) && core.Count < 5)
+        {
+            core.Add(usage);
         }
 
         return core.Take(5).ToArray();

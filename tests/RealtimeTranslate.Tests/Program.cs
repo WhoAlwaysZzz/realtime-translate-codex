@@ -294,6 +294,10 @@ static void WordCardEvidenceIsSurfacedWithConfidence()
         WordBreakdown: insight.Breakdown, InsightEvidence: $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}");
     AssertTrue(LookupCardTextFormatter.VisibleLines(presentation).Any(line => line.StartsWith("证据  ", StringComparison.Ordinal)),
         "card should expose evidence separately from the gloss");
+    var crowded = presentation with { ContextHint = "example usage", WordFamily = ["worded"] };
+    var crowdedLines = LookupCardTextFormatter.VisibleLines(crowded);
+    AssertTrue(crowdedLines.Any(line => line.StartsWith("证据  ", StringComparison.Ordinal)),
+        "evidence must survive the five-block first-screen limit");
 }
 
 static void StructuredDictionaryRetainsSensesAndFrequency()
@@ -569,7 +573,7 @@ static void ExportRenderedCardAudit(string outputPath)
         .Where(line => line.Length > 0).ToArray();
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
     using var writer = new StreamWriter(outputPath, false, new System.Text.UTF8Encoding(false));
-    writer.WriteLine("word\tvisible card lines");
+    writer.WriteLine("word\tvisible card lines\tevidence");
     foreach (var word in words)
     {
         var lookup = dictionary.Lookup(normalizer.Normalize(word));
@@ -587,8 +591,9 @@ static void ExportRenderedCardAudit(string outputPath)
         var presentation = new LookupPresentation(
             word, $"lemma: {lookup.EntryWord}", ranking.Definitions, ranking.PrimaryDefinition, 1,
             WordBreakdown: insight.Breakdown, WordFamily: insight.Family,
-            ContextHint: hint, FrequencyBand: lookup.FrequencyBand);
-        writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}");
+            ContextHint: hint, FrequencyBand: lookup.FrequencyBand,
+            InsightEvidence: insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty);
+        writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}\t{presentation.InsightEvidence}");
     }
 }
 

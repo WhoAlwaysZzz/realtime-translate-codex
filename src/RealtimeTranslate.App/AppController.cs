@@ -501,9 +501,16 @@ public sealed class AppController : IDisposable
         var primaryDefinition = ranking.PrimaryDefinition;
         var insight = LookupInsight(normalized, lookup);
         var usageHint = insight.ContextHint;
+        var insightEvidence = insight.HasEvidence
+            ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}"
+            : string.Empty;
         if (usageHint.Length == 0 && insight.Breakdown.Length == 0)
         {
             usageHint = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+            if (usageHint.Length > 0)
+            {
+                insightEvidence = "WordNet example usage；置信度 90%";
+            }
         }
         var subtitle = lookup.Found
             ? $"lemma: {lookup.EntryWord} · {source}"
@@ -520,7 +527,8 @@ public sealed class AppController : IDisposable
             WordFamily: insight.Family,
             ContextHint: usageHint,
             FrequencyBand: lookup.FrequencyBand,
-            IsContextAligned: ranking.WasContextAligned));
+            IsContextAligned: ranking.WasContextAligned,
+            InsightEvidence: insightEvidence));
     }
 
     private void ShowAndRemember(LookupPresentation presentation)
