@@ -594,7 +594,12 @@ static void UsageHintRequiresTargetBearingExample()
     var definitionOnly = new DictionarySense("v", "移动", ["move from one place to another"]);
     var definitionLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [definitionOnly]);
     var definitionRanking = new SenseRankingResult("移动", definitionLookup.Definitions, true, definitionOnly);
-    AssertEqual(UsageHintResult.Empty, service.GetHint(definitionLookup, definitionRanking, "go"));
+    var definitionHint = service.GetHint(definitionLookup, definitionRanking, "go");
+    AssertTrue(definitionHint.HasEvidence, "a single-sense definition can provide a sourced core concept");
+    AssertTrue(definitionHint.Text.Contains("move from one place", StringComparison.Ordinal),
+        "core concept should preserve the English semantic distinction");
+    AssertEqual("Open English WordNet 2025；定义", definitionHint.EvidenceSource);
+    AssertEqual(0.8, definitionHint.Confidence);
 
     var prefixOnly = new DictionarySense("v", "移动", ["move"], ["a good plan"]);
     var prefixLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [prefixOnly]);

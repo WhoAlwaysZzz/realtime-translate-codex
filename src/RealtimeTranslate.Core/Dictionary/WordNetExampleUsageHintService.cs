@@ -56,6 +56,24 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
         }
         if (hints.Length == 0)
         {
+            // A single-sense entry may have no examples but still carry a
+            // useful, source-backed English concept definition. Keep this
+            // fallback bounded and study-only; never use it to choose among
+            // competing senses.
+            if (!isMultiSenseComparison && senses.Count == 1)
+            {
+                var definition = (senses[0].EnglishDefinitions ?? [])
+                    .Select(CleanDefinition)
+                    .FirstOrDefault(candidate => candidate.Length is >= 20 and <= 160);
+                if (!string.IsNullOrWhiteSpace(definition))
+                {
+                    return new UsageHintResult(
+                        $"核心概念  {definition}",
+                        "Open English WordNet 2025；定义",
+                        0.80);
+                }
+            }
+
             return UsageHintResult.Empty;
         }
 
@@ -92,6 +110,9 @@ public sealed partial class WordNetExampleUsageHintService : IUsageHintService
 
     private static bool HasExactTarget(string text, string targetWord) =>
         WordToken().Matches(text).Any(match => match.Value.Equals(targetWord, StringComparison.OrdinalIgnoreCase));
+
+    private static string CleanDefinition(string value) =>
+        Regex.Replace(value.Trim(), "\\s+", " ").Trim(' ', '.', ';', ':');
 
     private static bool IsTargetForm(string word, string targetWord)
     {
