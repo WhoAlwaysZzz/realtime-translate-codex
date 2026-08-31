@@ -29,7 +29,7 @@ public sealed class WindowsOcrService : IOcrService
             return [];
         }
 
-        var allCandidates = new List<OcrCandidate>();
+        var variants = new List<IReadOnlyList<OcrCandidate>>();
         foreach (var variant in CreateImageVariants(imagePng))
         {
             IReadOnlyList<OcrCandidate> candidates;
@@ -43,14 +43,10 @@ public sealed class WindowsOcrService : IOcrService
                 // A malformed or unusually large crop must not stall the whole lookup.
                 continue;
             }
-            AddUniqueCandidates(allCandidates, candidates);
-            if (allCandidates.Count > 0)
-            {
-                return allCandidates;
-            }
+            variants.Add(candidates);
         }
 
-        return allCandidates;
+        return OcrVariantSelector.Select(variants);
     }
 
     private static async Task<IReadOnlyList<OcrCandidate>> RecognizeVariantAsync(
@@ -162,17 +158,6 @@ public sealed class WindowsOcrService : IOcrService
         using var stream = new MemoryStream();
         bitmap.Save(stream, ImageFormat.Png);
         return stream.ToArray();
-    }
-
-    private static void AddUniqueCandidates(List<OcrCandidate> target, IReadOnlyList<OcrCandidate> candidates)
-    {
-        foreach (var candidate in candidates)
-        {
-            if (!target.Any(existing => string.Equals(existing.Text, candidate.Text, StringComparison.OrdinalIgnoreCase)))
-            {
-                target.Add(candidate);
-            }
-        }
     }
 
     private static OcrEngine? CreateEngine()

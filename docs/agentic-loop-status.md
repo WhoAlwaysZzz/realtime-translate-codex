@@ -1,50 +1,41 @@
 # Agentic Loop Status
 
-Updated: 2026-09-01 02:11:00
+Updated: 2026-09-01 03:12:00
 
-- Run: agent iteration 11
+- Run: agent iteration 12
 - Stage: improving usable context OCR and learning-card quality
 - Goal: reliable sentence understanding plus memorable word learning
 - Independent review: required after each relevant committed change
 - Completion: automatic threshold or user acceptance
-- Hypothesis: OCR may faithfully retain the selected inflected surface form
-  while dictionary lookup uses its lemma. Passing only the lemma to the
-  context ranker then makes a trustworthy sentence fail the target-anchor
-  check. The ranker should accept only exact OCR tokens from the selected
-  normalizer candidates, never topical context alone.
-- Change: `AppController` now passes the selected `NormalizedWord` to
-  `ISenseRanker`. `LocalContextSenseRanker` matches its explicit candidates
-  (for example, `barked` and `bark`) for the anchor, POS scoring, and the
-  adjective-comma frame. The existing string overload remains for lookup
-  paths without an OCR selection.
-- Metric delta: the preserved 20-screen real-game replay is unchanged before
-  and after: OCR exact 20/20, contextual Top-1 10/16 (62.5%), expected
-  abstention 4/4, replay failures 0. The six anchor safety cases also remain
-  6/6 OCR exact, 2/5 contextual Top-1, and 1/1 expected abstention. A focused
-  form-aware ranking regression now proves `barked` anchors the verbal
-  `bark` sense while a sentence without either `barked` or `bark` abstains.
-- Real examples: archived game index 281 retains `golems` -> `golem` and its
-  reviewed `机器人` reading; index 1127 retains the anchored `bark` -> `吠叫`;
-  index 939 (`thrust`) still abstains when OCR has split-token debris; index
-  563 (`staunch`) still abstains because its OCR crop has no target anchor.
-- Outputs: before `artifacts/context-anchor-inflection-before-20260901.json`;
-  after `artifacts/context-anchor-inflection-full-after-20260901.json`.
-- Regressions and limits: no replay regression was observed, but the current
-  archived set does not exercise a case where this handoff changes the card;
-  the new direct regression is therefore necessary but not evidence of a
-  corpus improvement. These 20 historical selections are not the required
-  50 dual-transcribed screenshot corpus, so no sentence-line recovery, WER,
-  trust-gate precision/recall, latency, learning-layer quality, or independent
-  reviewer acceptance is established.
-- Verification: Debug build succeeded (four transient MSB3026 retries while a
-  previous replay child still held the test DLL); focused test suite passed
-  22/22; full production replay completed in 149 seconds with 0 failures.
-- Independent review: `insufficient-evidence`. The reviewer confirmed the
-  `barked` unit regression and unchanged 20-screen replay counts, but found
-  no committed real screenshot where an inflected selected form changes the
-  card. The archive also lacks committed screenshots and dual transcriptions;
-  its Chinese-substring Top-1 check is not a trust-gate precision/recall
-  metric. The separate 30-word learning evaluation remains unaddressed.
-- Next question: can a dual-transcribed screenshot corpus reveal whether
-  target-form-aware anchoring recovers valid context coverage, without
-  admitting any unanchored topical-sense selection?
+- Hypothesis: `WindowsOcrService` returned the first non-empty preprocessing
+  result, so a partial context read could suppress a more complete result from
+  another scale or threshold variant. Choosing a materially more coherent
+  variant should improve contextual meaning without replacing stable word OCR.
+- Change: all three OCR preprocessing variants now complete before selection.
+  `OcrVariantSelector` retains the first result unless another variant contains
+  at least two more usable lexical tokens. This keeps tight word crops stable;
+  context still has to pass `ContextQualityGate` and the target-anchor check
+  before it can steer a primary definition.
+- Metric delta: the same 20 real archived game screenshots changed from OCR
+  exact 20/20, contextual Top-1 10/16 (62.5%), expected abstention 4/4 to
+  OCR exact 20/20, contextual Top-1 11/16 (68.75%), expected abstention 4/4.
+  Replay failures remained 0. This is below the stated 90% contextual Top-1
+  target and is not a gate precision/recall measurement.
+- Real examples: index 1028 (`burden`) changed from an honest abstention to
+  `本句中，burden作名词，指“负担”。`: the selected variant restored `my` in
+  `This was my fault, my ...`, enabling the existing possessive noun frame.
+  Index 1030 still contains split-token debris (`s a e`) and still abstains;
+  index 1123 remains the expected no-context `bark` abstention. Context text
+  also improved visibly at indices 657, 700, and 845 without altering their
+  already-correct cards.
+- Outputs: before `artifacts/variant-selection-before-20260901.json`; after
+  `artifacts/variant-selection-after-20260901.json`.
+- Regressions and limits: no OCR exact, Top-1, or abstention regression on
+  the archive; focused tests passed 23/23 and solution build had 0 warnings
+  and 0 errors. The corpus has only 20 archived screenshots, no dual blind
+  transcriptions, and no trustworthy safe/unsafe context labels, so sentence
+  recovery, WER, trust-gate precision/recall, latency, learning quality, and
+  independent-review acceptance remain unproven.
+- Next question: can a dual-transcribed screenshot batch determine whether
+  the selector improves context recovery while retaining at least 95% safety
+  precision for `ContextQualityGate`?

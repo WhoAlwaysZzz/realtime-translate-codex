@@ -29,6 +29,7 @@ var tests = new (string Name, Action Body)[]
     ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
     ("OCR text composer joins words into readable text", OcrTextComposerJoinsWordsIntoReadableText),
+    ("OCR variant selector keeps tight crops stable and upgrades coherent context", OcrVariantSelectorKeepsTightCropsStableAndUpgradesCoherentContext),
     ("word card index loads exact reviewed fields", WordCardIndexLoadsExactFields),
     ("word card evidence is surfaced with confidence", WordCardEvidenceIsSurfacedWithConfidence),
     ("word card regressions reject false families", WordCardRegressionsRejectFalseFamilies),
@@ -268,6 +269,23 @@ static void OcrTextComposerJoinsWordsIntoReadableText()
     ]);
 
     AssertEqual("This is complex, isn't it?", text);
+}
+
+static void OcrVariantSelectorKeepsTightCropsStableAndUpgradesCoherentContext()
+{
+    var tightCrop = OcrVariantSelector.Select([
+        [new OcrCandidate("bark", 1)],
+        [new OcrCandidate("barks", 1)],
+        [new OcrCandidate("bark", 1)],
+    ]);
+    AssertEqual("bark", tightCrop.Single().Text);
+
+    var context = OcrVariantSelector.Select([
+        [new OcrCandidate("The", 1), new OcrCandidate("dog", 1)],
+        [new OcrCandidate("The", 1), new OcrCandidate("dog", 1), new OcrCandidate("began", 1), new OcrCandidate("to", 1), new OcrCandidate("bark", 1)],
+    ]);
+    AssertEqual(5, context.Count);
+    AssertEqual("bark", context[^1].Text);
 }
 
 static void WordCardIndexLoadsExactFields()
