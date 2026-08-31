@@ -30,6 +30,23 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
 
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)
     {
+        return Rank(lookup, targetWord, [targetWord], context);
+    }
+
+    public SenseRankingResult Rank(DictionaryLookupResult lookup, NormalizedWord selectedWord, string context)
+    {
+        var targetWord = string.IsNullOrWhiteSpace(lookup.EntryWord)
+            ? selectedWord.Lemma
+            : lookup.EntryWord;
+        return Rank(lookup, targetWord, selectedWord.Candidates, context);
+    }
+
+    private SenseRankingResult Rank(
+        DictionaryLookupResult lookup,
+        string targetWord,
+        IReadOnlyList<string> targetVariants,
+        string context)
+    {
         var contextIsSafe = ContextQualityGate.IsSafe(context);
         if (!contextIsSafe)
         {
@@ -65,8 +82,12 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         }
 
         var contextTokens = Tokens(context).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var normalizedTargetVariants = targetVariants
+            .Append(targetWord)
+            .Where(variant => !string.IsNullOrWhiteSpace(variant))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var targetVisibleInContext = WordToken().Matches(context)
-            .Any(match => match.Value.Equals(targetWord, StringComparison.OrdinalIgnoreCase));
+            .Any(match => normalizedTargetVariants.Contains(match.Value));
         var hasMaskedFrame = IsMaskedNounFrame(context);
         // A readable crop is not automatically evidence for this lookup. If
         // the selected word was removed from the crop and no recognized frame
@@ -77,7 +98,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             return Abstain(senses);
         }
         var ordered = senses
-            .Select((sense, index) => new RankedSense(sense, Score(sense, targetWord, context, contextTokens), index))
+            .Select((sense, index) => new RankedSense(sense, Score(sense, targetWord, normalizedTargetVariants, context, contextTokens), index))
             .OrderByDescending(item => item.Score)
             .ThenBy(item => item.Index)
             .ToArray();
@@ -113,14 +134,19 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         return new SenseRankingResult(flat, senses.Select(Format).ToArray(), false);
     }
 
-    private static int Score(DictionarySense sense, string targetWord, string context, HashSet<string> contextTokens)
+    private static int Score(
+        DictionarySense sense,
+        string targetWord,
+        HashSet<string> targetVariants,
+        string context,
+        HashSet<string> contextTokens)
     {
         var score = 0;
         var words = WordToken().Matches(context).Select(match => match.Value).ToArray();
-        var targetVisibleInContext = words.Any(word => word.Equals(targetWord, StringComparison.OrdinalIgnoreCase));
+        var targetVisibleInContext = words.Any(targetVariants.Contains);
         for (var index = 0; index < words.Length; index++)
         {
-            if (!words[index].Equals(targetWord, StringComparison.OrdinalIgnoreCase))
+            if (!targetVariants.Contains(words[index]))
             {
                 continue;
             }
@@ -142,7 +168,7 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
             // followed by a comma ("the frail, slender girl").  The article
             // heuristic above must not let the noun sense win this common form.
             if (sense.PartOfSpeech is "adj" or "a"
-                && Regex.IsMatch(context, $@"\b{Regex.Escape(targetWord)}\b\s*,", RegexOptions.IgnoreCase))
+                && targetVariants.Any(variant => Regex.IsMatch(context, $@"\b{Regex.Escape(variant)}\b\s*,", RegexOptions.IgnoreCase)))
             {
                 score += 5;
             }

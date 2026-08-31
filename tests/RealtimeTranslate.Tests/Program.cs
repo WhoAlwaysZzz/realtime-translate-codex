@@ -352,6 +352,20 @@ static void ContextRankerSelectsOrAbstainsHonestly()
     AssertTrue(dog.WasContextAligned, "dog context should be marked as aligned");
     AssertEqual("本句中，bark作动词，指“吠叫”。", dog.PrimaryDefinition);
 
+    var inflectedDog = ranker.Rank(
+        lookup,
+        new NormalizedWord("barked", "bark", ["barked", "bark"]),
+        "The dog barked at the stranger.");
+    AssertTrue(inflectedDog.IsConfident, "an inflected selected form visible in trustworthy context should anchor ranking");
+    AssertTrue(inflectedDog.WasContextAligned, "an inflected anchor should be marked as aligned");
+    AssertEqual("本句中，bark作动词，指“吠叫”。", inflectedDog.PrimaryDefinition);
+
+    var absentInflectedDog = ranker.Rank(
+        lookup,
+        new NormalizedWord("barked", "bark", ["barked", "bark"]),
+        "The dog runs toward the stranger.");
+    AssertTrue(!absentInflectedDog.IsConfident, "a normalized candidate must not make an unmentioned target look anchored");
+
     var tree = ranker.Rank(lookup, "bark", "The bark protects the old tree.");
     AssertTrue(tree.IsConfident, "article and tree context should be confidently nominal");
     AssertTrue(tree.WasContextAligned, "tree context should be marked as aligned");

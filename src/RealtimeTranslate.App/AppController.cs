@@ -415,7 +415,7 @@ public sealed class AppController : IDisposable
             var normalized = _wordNormalizer.Normalize(recognizedText);
             var lookup = _dictionaryService.Lookup(normalized);
             var ranking = lookup.Found
-                ? _senseRanker.Rank(lookup, lookup.EntryWord, contextText)
+                ? _senseRanker.Rank(lookup, normalized, contextText)
                 : new SenseRankingResult("未找到释义", ["未找到释义"], false);
             var definitions = ranking.Definitions;
             var title = string.IsNullOrWhiteSpace(normalized.DisplayWord) ? recognizedText : normalized.DisplayWord;
