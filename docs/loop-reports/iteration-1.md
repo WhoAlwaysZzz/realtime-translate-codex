@@ -22,7 +22,7 @@ The larger crop increased OCR work enough to time out both `bark` HUD samples. I
 
 ## Independent Review
 
-`insufficient-evidence`: the experiment is a falsified crop-size hypothesis, not an accepted improvement. A reviewer must confirm that the timeout regression and unchanged dialogue text are correctly represented; no automatic acceptance is warranted.
+Decision: `insufficient-evidence`. The independent reviewer confirmed that 240 px caused two HUD replay timeouts and that the three completed dialogue samples showed no changed text. The reviewer also noted that the five-case result has no independently transcribed line-level gold labels or WER, and that the 5/5 OCR figure must not be read as end-to-end success because two samples failed. The reviewer found no basis for automatic acceptance.
 
 ## Next Question
 
