@@ -292,6 +292,13 @@ static void OcrVariantSelectorKeepsTightCropsStableAndUpgradesCoherentContext()
     ]);
     AssertEqual(5, context.Count);
     AssertEqual("bark", context[^1].Text);
+
+    var marginalContext = OcrVariantSelector.Select([
+        [new OcrCandidate("babbling", 1), new OcrCandidate("like", 1), new OcrCandidate("a", 1)],
+        [new OcrCandidate("babbling", 1), new OcrCandidate("like", 1), new OcrCandidate("a", 1), new OcrCandidate("parrot", 1)],
+    ]);
+    AssertEqual(4, marginalContext.Count);
+    AssertEqual("parrot", marginalContext[^1].Text);
 }
 
 static void WordCardIndexLoadsExactFields()

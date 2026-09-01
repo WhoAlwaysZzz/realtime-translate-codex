@@ -26,9 +26,11 @@ public static partial class OcrVariantSelector
 
         // A tight word crop normally has one meaningful token in every
         // variant. Do not replace that known-good first result on a marginal
-        // score difference. Context OCR needs a clear extra sentence token
-        // before another preprocessing result can take over.
-        return best.Score >= firstScore + 2 ? best.Candidates : first;
+        // score difference. For multi-token crops, a one-token gain is useful
+        // evidence that a scaled/preprocessed variant recovered a sentence
+        // edge, so allow that upgrade without changing single-word behavior.
+        var requiredGain = firstScore <= 1 ? 2 : 1;
+        return best.Score >= firstScore + requiredGain ? best.Candidates : first;
     }
 
     private static int UsableTokenCount(IReadOnlyList<OcrCandidate> candidates) => candidates.Count(candidate =>
