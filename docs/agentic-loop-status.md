@@ -1,11 +1,9 @@
 # Agentic Loop Status
 
-Updated: 2026-09-01 14:25:41
+Updated: 2026-09-01 14:27:00
 
-- Run: agent iteration 3
-- Stage: improving usable context OCR and learning-card quality
-- Goal: reliable sentence understanding plus memorable word learning
-- Scope: general desktop OCR baseline plus optional game-dialogue enhancement
-- Independent review: required after each relevant committed change
-- Completion: automatic threshold or user acceptance
-- Next: inspect docs/loop-reports/iteration-3.md
+- Run: paused by user
+- Stage: loop stopped; current OCR-context experiment preserved
+- Last observed iteration: 3
+- Resume: start tools/Run-AgenticLoop.ps1 again when requested
+- Note: no files, screenshots, history, or test artifacts were deleted
