@@ -11,6 +11,7 @@ $pidPath = Join-Path $repo 'docs\agentic-loop.pid'
 $done = Join-Path $repo 'docs\agent-loop.accepted'
 $autoAccepted = Join-Path $repo 'docs\agent-loop.auto-accepted.md'
 $reviewLog = Join-Path $repo 'artifacts\agent-review-log.md'
+$reportDirectory = Join-Path $repo 'docs\loop-reports'
 
 function Repair-Mojibake([string]$text) {
     if ([string]::IsNullOrEmpty($text)) { return $text }
@@ -27,11 +28,11 @@ while (-not (Test-Path $done) -and -not (Test-Path $autoAccepted) -and $iteratio
     $iteration++
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $headBefore = (& git -C $repo rev-parse HEAD).Trim()
-    @("# Agentic Loop Status", "", "Updated: $stamp", "", "- Run: agent iteration $iteration", "- Stage: improving usable context OCR and learning-card quality", "- Goal: reliable sentence understanding plus memorable word learning", "- Independent review: required after each relevant committed change", "- Completion: automatic threshold or user acceptance", "- Next: inspect agent log for the current OCR/learning-card experiment") | Set-Content -Encoding utf8 $status
+    @("# Agentic Loop Status", "", "Updated: $stamp", "", "- Run: agent iteration $iteration", "- Stage: improving usable context OCR and learning-card quality", "- Goal: reliable sentence understanding plus memorable word learning", "- Scope: general desktop OCR baseline plus optional game-dialogue enhancement", "- Independent review: required after each relevant committed change", "- Completion: automatic threshold or user acceptance", "- Next: inspect docs/loop-reports/iteration-$iteration.md") | Set-Content -Encoding utf8 $status
     Add-Content -Encoding utf8 $log "[$stamp] START agent iteration=$iteration"
 
     $prompt = @"
-You are the autonomous engineering agent for this repository. The product goal is the two-part objective in docs/agentic-loop-goal.md: usable game-dialogue context OCR AND memorable, evidence-backed word learning. Read the current pipeline, real game screenshots, card output, and evidence. Choose one highest-value hypothesis, which may change OCR architecture, context safety, dictionary/insight data architecture, or card information hierarchy. Preserve before/after outputs against manually transcribed screenshots and learning evaluation cases. Do not treat non-empty OCR, a longer card, generic AI prose, or passing unit tests as success. Measure the relevant OCR or learning quality gate and regressions. Context that fails its trust gate must not steer a main meaning. Learning insights must explain the word beyond the current Chinese gloss and cite reliable data; omit weak insights. Do not spend the iteration on tray, hotkeys, generic maintenance, or replay plumbing. Build and run only the needed verification, commit coherent changes, and update docs/agentic-loop-status.md with the hypothesis, metric delta, real examples, regressions, and next question. If all automatic completion criteria are actually met, create docs/agent-loop.auto-accepted.md with exact evidence and two accepted reviewer-report paths; otherwise keep working. Never create or modify docs/agent-loop.accepted. Do not modify unrelated user changes.
+You are the autonomous engineering agent for this repository. Follow docs/agentic-loop-goal.md. Keep the OCR foundation general for arbitrary desktop text; optimize the Reversed Future 1999 dialogue scenario through a detected, optional enhancement layer, never fixed coordinates as the only mode. The current highest-value problem is usable context OCR and then memorable word learning. Choose one evidence-backed hypothesis, make a reversible architecture or implementation change, and preserve before/after real examples. Do not treat non-empty OCR, longer cards, generic AI prose, or unit tests as success. Measure actual text fidelity, context safety, and learning usefulness. Do not spend the iteration on unrelated maintenance. Build and run only needed verification, commit coherent changes, and update docs/agentic-loop-status.md. You MUST also create docs/loop-reports/iteration-$iteration.md containing the hypothesis, exact changes and commit, before/after examples, metrics, regressions, independent-review result, and next question. If all criteria are met, create docs/agent-loop.auto-accepted.md; otherwise keep working. Never create or modify docs/agent-loop.accepted. Do not modify unrelated user changes.
 "@
     $previousErrorAction = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -52,6 +53,10 @@ You are an independent, read-only and deliberately skeptical reviewer. Review th
         Add-Content -Encoding utf8 $log "[$(Get-Date -Format s)] REVIEW iteration=$iteration commit=$headAfter`r`n$review"
         Add-Content -Encoding utf8 $reviewLog "`n## $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | iteration $iteration | $headAfter`n`n$review"
     }
+    if (!(Test-Path $reportDirectory)) { New-Item -ItemType Directory -Path $reportDirectory | Out-Null }
+    $reportPath = Join-Path $reportDirectory "iteration-$iteration.md"
+    $reportTail = (Repair-Mojibake $output) -split "`r?`n" | Select-Object -Last 120
+    @("# Loop Iteration $iteration", "", "- Started: $stamp", "- Commit before: $headBefore", "- Commit after: $headAfter", "- Independent review: " + $(if($headAfter -ne $headBefore){"recorded in artifacts/agent-review-log.md"}else{"not triggered; no commit"}), "", "## Agent report/output", "", ($reportTail -join "`n")) | Set-Content -Encoding utf8 $reportPath
     Start-Sleep -Seconds $PauseSeconds
 }
 
