@@ -28,6 +28,9 @@ while (-not (Test-Path $done) -and -not (Test-Path $autoAccepted) -and $iteratio
     $iteration++
     $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $headBefore = (& git -C $repo rev-parse HEAD).Trim()
+    if (!(Test-Path $reportDirectory)) { New-Item -ItemType Directory -Path $reportDirectory | Out-Null }
+    $reportPath = Join-Path $reportDirectory "iteration-$iteration.md"
+    @("# Loop Iteration $iteration", "", "- Started: $stamp", "- State: in progress", "- Commit before: $headBefore", "- Goal: context OCR quality and evidence-backed word learning", "- Note: this file is updated at start so a long-running or interrupted iteration remains visible") | Set-Content -Encoding utf8 $reportPath
     @("# Agentic Loop Status", "", "Updated: $stamp", "", "- Run: agent iteration $iteration", "- Stage: improving usable context OCR and learning-card quality", "- Goal: reliable sentence understanding plus memorable word learning", "- Scope: general desktop OCR baseline plus optional game-dialogue enhancement", "- Independent review: required after each relevant committed change", "- Completion: automatic threshold or user acceptance", "- Next: inspect docs/loop-reports/iteration-$iteration.md") | Set-Content -Encoding utf8 $status
     Add-Content -Encoding utf8 $log "[$stamp] START agent iteration=$iteration"
 
@@ -53,8 +56,6 @@ You are an independent, read-only and deliberately skeptical reviewer. Review th
         Add-Content -Encoding utf8 $log "[$(Get-Date -Format s)] REVIEW iteration=$iteration commit=$headAfter`r`n$review"
         Add-Content -Encoding utf8 $reviewLog "`n## $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') | iteration $iteration | $headAfter`n`n$review"
     }
-    if (!(Test-Path $reportDirectory)) { New-Item -ItemType Directory -Path $reportDirectory | Out-Null }
-    $reportPath = Join-Path $reportDirectory "iteration-$iteration.md"
     $reportTail = (Repair-Mojibake $output) -split "`r?`n" | Select-Object -Last 120
     @("# Loop Iteration $iteration", "", "- Started: $stamp", "- Commit before: $headBefore", "- Commit after: $headAfter", "- Independent review: " + $(if($headAfter -ne $headBefore){"recorded in artifacts/agent-review-log.md"}else{"not triggered; no commit"}), "", "## Agent report/output", "", ($reportTail -join "`n")) | Set-Content -Encoding utf8 $reportPath
     Start-Sleep -Seconds $PauseSeconds
