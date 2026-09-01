@@ -6,7 +6,7 @@ The fixed 180 px vertical context padding may crop out nearby Reverse: 1999 dial
 
 ## Exact Change And Commit
 
-The experiment changed `ContextVerticalPaddingPixels` from 180 to 240 in `WindowsScreenshotService` and `ReplayScreenshotService`, then reverted it after verification. The final committed state keeps the original 180 px behavior because the measured result was a regression. This report and the status update are committed as the iteration record.
+The experiment changed `ContextVerticalPaddingPixels` from 180 to 240 in `WindowsScreenshotService` and `ReplayScreenshotService`, then reverted it after verification. The final committed state keeps the original 180 px behavior because the measured result was a regression. Commits: `1940132` (report/status) and `0e26673` (independent-review correction).
 
 ## Before/After Examples
 
