@@ -1,0 +1,108 @@
+{
+  "GeneratedAt": "2026-08-29T22:51:35.8739603Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 3,
+  "MaxRunSeconds": 0,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 3,
+  "DictionaryFound": 3,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 0,
+  "OcrExact": 0,
+  "Top1SenseLabeled": 0,
+  "Top1Sense": 0,
+  "ContextLabeled": 0,
+  "ContextTop1Sense": 0,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 3
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "likely-hud",
+      "Count": 1
+    },
+    {
+      "Name": "mixed-ui",
+      "Count": 1
+    },
+    {
+      "Name": "text-like",
+      "Count": 1
+    }
+  ],
+  "Results": [
+    {
+      "Index": 939,
+      "SourceWord": "thrust",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "thrust",
+      "ContextText": "Sonetto The islanders were vulnerability then exp 01 e arms. o war, their beliefs shattered, and th by Manus, who welcomed them v",
+      "ContextAvailable": true,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 14861,
+      "ContrastRange": 209,
+      "EdgeDensity": 0.0875,
+      "GreenRatio": 0.0,
+      "ContentClass": "text-like",
+      "FoundDefinition": true,
+      "ExpectedText": null,
+      "OcrExact": null,
+      "ExpectedSense": null,
+      "Top1Sense": null,
+      "Diagnostic": "ok"
+    },
+    {
+      "Index": 1122,
+      "SourceWord": "shelter",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "shelter",
+      "ContextText": "",
+      "ContextAvailable": false,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 38952,
+      "ContrastRange": 255,
+      "EdgeDensity": 0.0335,
+      "GreenRatio": 0.0,
+      "ContentClass": "mixed-ui",
+      "FoundDefinition": true,
+      "ExpectedText": null,
+      "OcrExact": null,
+      "ExpectedSense": null,
+      "Top1Sense": null,
+      "Diagnostic": "ok"
+    },
+    {
+      "Index": 1123,
+      "SourceWord": "bark",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "bark",
+      "ContextText": "",
+      "ContextAvailable": false,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 38952,
+      "ContrastRange": 255,
+      "EdgeDensity": 0.0231,
+      "GreenRatio": 0.0001,
+      "ContentClass": "likely-hud",
+      "FoundDefinition": true,
+      "ExpectedText": null,
+      "OcrExact": null,
+      "ExpectedSense": null,
+      "Top1Sense": null,
+      "Diagnostic": "ok"
+    }
+  ]
+}

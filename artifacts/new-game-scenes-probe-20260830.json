@@ -1,0 +1,58 @@
+﻿{
+    "GeneratedAt":  "2026-08-29T23:38:31.9612865Z",
+    "StartIndex":  1029,
+    "RequestedSamples":  1028,
+    "ActualSamples":  1,
+    "MaxRunSeconds":  120,
+    "CandidateManifestPath":  "",
+    "CandidatePoolCount":  101,
+    "RunTimeLimitReached":  false,
+    "OcrNonEmpty":  1,
+    "DictionaryFound":  1,
+    "OcrRegressions":  0,
+    "OcrRecoveries":  0,
+    "ReplayTimeouts":  0,
+    "ReplayFailures":  0,
+    "LabeledSamples":  0,
+    "OcrExact":  0,
+    "Top1SenseLabeled":  0,
+    "Top1Sense":  0,
+    "ContextLabeled":  0,
+    "ContextTop1Sense":  0,
+    "Diagnostics":  [
+                        {
+                            "Name":  "ok",
+                            "Count":  1
+                        }
+                    ],
+    "InputQuality":  [
+                         {
+                             "Name":  "text-like",
+                             "Count":  1
+                         }
+                     ],
+    "Results":  [
+                    {
+                        "Index":  1027,
+                        "SourceWord":  "crack",
+                        "ExitCode":  0,
+                        "ReplayTimedOut":  false,
+                        "RecognizedText":  "crack",
+                        "ContextText":  "Admiral Igor Our Second Lieutenant Lopera is a hot. I trained her to be nothing less. Yet, no soldier of Zeno would take pride in an execution.",
+                        "ContextAvailable":  true,
+                        "Screenshot":  "2560x1600",
+                        "SelectionQuality":  "in-bounds",
+                        "CropPixels":  8505,
+                        "ContrastRange":  207,
+                        "EdgeDensity":  0.0908,
+                        "GreenRatio":  0,
+                        "ContentClass":  "text-like",
+                        "FoundDefinition":  true,
+                        "ExpectedText":  null,
+                        "OcrExact":  null,
+                        "ExpectedSense":  null,
+                        "Top1Sense":  null,
+                        "Diagnostic":  "ok"
+                    }
+                ]
+}

@@ -1,7 +1,0 @@
-Archived screenshot replay is verified end-to-end.
-
-Verification:
-- `dotnet build RealtimeTranslateCodex.sln --no-restore` (0 warnings, 0 errors)
-- `RealtimeTranslateCodex.App.exe --replay %LOCALAPPDATA%\\RealtimeTranslateCodex\\records\\lookups.jsonl --index 13`
-- Output: `%TEMP%\\RealtimeTranslateCodex-replay\\records\\lookups.jsonl`
-- Result: OCR recognized `translate`; dictionary lookup returned `v. 翻译、解释、转化、被译`.
