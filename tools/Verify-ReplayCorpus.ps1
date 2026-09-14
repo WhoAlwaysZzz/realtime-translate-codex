@@ -1,4 +1,4 @@
-param(
+﻿param(
     [int]$SampleCount = 12,
     [int]$StartIndex = 0,
     [int]$DelayMilliseconds = 250,

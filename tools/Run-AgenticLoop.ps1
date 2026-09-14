@@ -1,4 +1,4 @@
-param(
+﻿param(
     [int]$PauseSeconds = 5,
     [int]$MaxIterations = 80
 )

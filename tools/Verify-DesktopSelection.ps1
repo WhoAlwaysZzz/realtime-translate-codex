@@ -1,4 +1,4 @@
-param(
+﻿param(
     [int]$TimeoutSeconds = 25,
     [int]$SettleMilliseconds = 2500,
     [int]$Attempts = 3

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$SourceUrl = "https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv",
     [string]$OutputPath = "src/RealtimeTranslate.App/dictionary.tsv"
 )

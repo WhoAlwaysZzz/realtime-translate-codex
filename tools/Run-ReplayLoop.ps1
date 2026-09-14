@@ -1,4 +1,4 @@
-param([int]$PauseSeconds = 2)
+﻿param([int]$PauseSeconds = 2)
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
