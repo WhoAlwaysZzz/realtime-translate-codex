@@ -287,6 +287,7 @@ static void HotkeyFallbackCandidatesAreOrderedAndUnique()
     var functionKey = new HotkeyGesture(Key.F4, ModifierKeys.None);
     AssertEqual(functionKey, HotkeyFallbackPolicy.GetCandidates(functionKey).First());
 }
+
 static void OcrTextComposerJoinsWordsIntoReadableText()
 {
     var composer = new OcrTextComposer();
@@ -561,6 +562,8 @@ static void ContextQualityGateRejectsOcrDebris()
     AssertTrue(!ContextQualityGate.IsSafe("Her voice softens as she looks at th slender girl in front of her."), "truncated OCR token must fail the context gate");
     AssertTrue(!ContextQualityGate.IsSafe("Sonetto The islanders were vulnerability then exp 01 e arms. o war, their beliefs shattered, and they were welcomed by Manus."), "a split OCR letter must fail even in a long crop");
     AssertTrue(!ContextQualityGate.IsSafe("He stands in s a e Sao Paulo."), "one-character OCR debris must fail the context gate");
+    AssertTrue(!ContextQualityGate.IsSafe("The islanders were thrust into war, their beliefs shattered, exp 01 e arms."), "HUD digits embedded in a long crop must fail the context gate");
+    AssertTrue(ContextQualityGate.IsSafe("The mission starts at 10 tonight and ends at dawn."), "ordinary numeric desktop text should remain usable");
 }
 
 static void RenderedCardUsesFrequencyAndShortUsageFallback()

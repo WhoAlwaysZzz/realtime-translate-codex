@@ -18,6 +18,16 @@ public static partial class ContextQualityGate
             return false;
         }
 
+        // OCR often splices HUD counters or menu labels into a subtitle crop
+        // (for example, "exp 01 e arms"). Digits become unsafe when they are
+        // coupled with the isolated-letter debris that marks this failure;
+        // ordinary desktop prose containing a number remains usable.
+        if (context.Any(char.IsDigit)
+            && tokens.Any(token => token.Length == 1 && !AllowedSingle.Contains(token)))
+        {
+            return false;
+        }
+
         // OCR crops commonly split words into one-character debris ("s a e")
         // or emit isolated two-character noise. Keep the gate conservative:
         // ordinary function words (a, an, am, I, to, of, ...) are allowed.
