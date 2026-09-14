@@ -2,13 +2,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RealtimeTranslate.Core\RealtimeTranslate.Core.csproj" />
+    <ProjectReference Include="..\..\src\RealtimeTranslate.App\RealtimeTranslate.App.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
 </Project>

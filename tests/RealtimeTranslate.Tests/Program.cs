@@ -1,5 +1,13 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using System.IO.Compression;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
 using RealtimeTranslate.Core.Dictionary;
 using RealtimeTranslate.Core.Explanation;
 using RealtimeTranslate.Core.History;
@@ -9,6 +17,7 @@ using RealtimeTranslate.Core.Ocr;
 using RealtimeTranslate.Core.Presentation;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Stats;
+using RealtimeTranslate.App.Settings;
 
 var tests = new (string Name, Action Body)[]
 {
@@ -28,6 +37,7 @@ var tests = new (string Name, Action Body)[]
     ("overlay placement planner stacks rapid reservations", OverlayPlacementPlannerStacksRapidReservations),
     ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
+    ("hotkey fallback candidates are ordered and unique", HotkeyFallbackCandidatesAreOrderedAndUnique),
     ("OCR text composer joins words into readable text", OcrTextComposerJoinsWordsIntoReadableText),
     ("OCR variant selector keeps tight crops stable and upgrades coherent context", OcrVariantSelectorKeepsTightCropsStableAndUpgradesCoherentContext),
     ("word card index loads exact reviewed fields", WordCardIndexLoadsExactFields),
@@ -261,6 +271,22 @@ static void ExplanationRecorderWritesJsonl()
     AssertEqual(300, doc.RootElement.GetProperty("selection").GetProperty("width").GetInt32());
 }
 
+static void HotkeyFallbackCandidatesAreOrderedAndUnique()
+{
+    var configured = new HotkeyGesture(Key.C, ModifierKeys.Control | ModifierKeys.Shift);
+    var candidates = HotkeyFallbackPolicy.GetCandidates(configured).ToArray();
+
+    AssertEqual(configured, candidates[0]);
+    AssertEqual(HotkeyGesture.Default, candidates[1]);
+    AssertTrue(candidates.Contains(new HotkeyGesture(Key.A, configured.Modifiers)), "expected same-modifier letter fallback");
+    AssertTrue(candidates.Contains(new HotkeyGesture(Key.F7, ModifierKeys.None)), "expected function-key fallback");
+    AssertEqual(candidates.Length, candidates.Distinct().Count());
+    AssertEqual(1, candidates.Count(candidate => candidate == configured));
+    AssertTrue(candidates.All(candidate => candidate.IsValid), "all fallback candidates must be valid global hotkeys");
+
+    var functionKey = new HotkeyGesture(Key.F4, ModifierKeys.None);
+    AssertEqual(functionKey, HotkeyFallbackPolicy.GetCandidates(functionKey).First());
+}
 static void OcrTextComposerJoinsWordsIntoReadableText()
 {
     var composer = new OcrTextComposer();

@@ -129,16 +129,17 @@ public sealed class AppController : IDisposable
 
         if (registerHotkeys)
         {
-            RegisterCommandHotkeys();
-        }
-        _rightDragSelectionService.Start();
-        if (registerHotkeys)
-        {
+            var hotkeyStatus = RegisterCommandHotkeys();
+            _rightDragSelectionService.Start();
             UpdateTray();
             _trayIconService.ShowInfo(
                 "Realtime Translate Codex",
                 $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, {_preferences.RecentLookupsHotkey} to replay, or {_preferences.ExplainSelectionHotkey} to explain text.");
+            ShowHotkeyStatus(hotkeyStatus);
+            return;
         }
+
+        _rightDragSelectionService.Start();
     }
 
     public void Dispose()
@@ -738,15 +739,23 @@ public sealed class AppController : IDisposable
         try
         {
             var updated = _preferences.WithHotkey(command, window.CapturedHotkey);
-            RegisterCommandHotkey(command, updated.GetHotkey(command));
+            var registeredHotkey = RegisterCommandHotkey(command, updated.GetHotkey(command));
+            updated = updated.WithHotkey(command, registeredHotkey);
             SavePreferences(updated);
-            _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey updated", $"Current hotkey: {updated.GetHotkey(command)}");
+            var message = registeredHotkey == window.CapturedHotkey
+                ? $"Current hotkey: {registeredHotkey}"
+                : $"The configured {window.CapturedHotkey} was unavailable. Using {registeredHotkey}.";
+            _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey updated", message);
         }
         catch (Exception ex)
         {
             try
             {
-                RegisterCommandHotkey(command, _preferences.GetHotkey(command));
+                var restoredHotkey = RegisterCommandHotkey(command, _preferences.GetHotkey(command));
+                if (restoredHotkey != _preferences.GetHotkey(command))
+                {
+                    SavePreferences(_preferences.WithHotkey(command, restoredHotkey));
+                }
             }
             catch
             {
@@ -772,12 +781,36 @@ public sealed class AppController : IDisposable
         SavePreferences(_preferences with { SelectionMode = selectionMode });
     }
 
-    private void RegisterCommandHotkeys()
+    private (IReadOnlyList<string> Adjusted, IReadOnlyList<string> Unavailable) RegisterCommandHotkeys()
     {
+        var updatedPreferences = _preferences;
+        var adjusted = new List<string>();
+        var unavailable = new List<string>();
+
         foreach (var command in Enum.GetValues<LookupCommand>())
         {
-            RegisterCommandHotkey(command, _preferences.GetHotkey(command));
+            var preferredHotkey = updatedPreferences.GetHotkey(command);
+            try
+            {
+                var registeredHotkey = RegisterCommandHotkey(command, preferredHotkey);
+                if (registeredHotkey != preferredHotkey)
+                {
+                    updatedPreferences = updatedPreferences.WithHotkey(command, registeredHotkey);
+                    adjusted.Add($"{CommandDisplayName(command)}: {preferredHotkey} -> {registeredHotkey}");
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                unavailable.Add($"{CommandDisplayName(command)}: {ex.Message}");
+            }
         }
+
+        if (updatedPreferences != _preferences)
+        {
+            SavePreferences(updatedPreferences);
+        }
+
+        return (adjusted, unavailable);
     }
 
     private WordInsight LookupInsight(NormalizedWord normalized, DictionaryLookupResult lookup)
@@ -835,11 +868,12 @@ public sealed class AppController : IDisposable
     {
         try
         {
-            RegisterCommandHotkeys();
+            var hotkeyStatus = RegisterCommandHotkeys();
             _rightDragSelectionService.Start();
             _isPaused = false;
             UpdateTray();
             _trayIconService.ShowInfo("Realtime Translate Codex resumed", "Word lookup is active again.");
+            ShowHotkeyStatus(hotkeyStatus);
         }
         catch (Exception ex)
         {
@@ -849,9 +883,27 @@ public sealed class AppController : IDisposable
         }
     }
 
-    private void RegisterCommandHotkey(LookupCommand command, HotkeyGesture hotkey)
+    private HotkeyGesture RegisterCommandHotkey(LookupCommand command, HotkeyGesture preferredHotkey)
     {
-        _hotkeyServices[command].Register(hotkey);
+        Exception? lastError = null;
+        var tried = new List<string>();
+        foreach (var candidate in HotkeyFallbackPolicy.GetCandidates(preferredHotkey))
+        {
+            tried.Add(candidate.ToString());
+            try
+            {
+                _hotkeyServices[command].Register(candidate);
+                return candidate;
+            }
+            catch (InvalidOperationException ex)
+            {
+                lastError = ex;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Unable to register {CommandDisplayName(command)} hotkey. Tried: {string.Join(", ", tried)}.",
+            lastError);
     }
 
     private void EnsureHotkeyRegistered()
@@ -872,13 +924,41 @@ public sealed class AppController : IDisposable
 
             try
             {
-                RegisterCommandHotkey(command, preferredHotkey);
+                var registeredHotkey = RegisterCommandHotkey(command, preferredHotkey);
+                if (registeredHotkey != preferredHotkey)
+                {
+                    SavePreferences(_preferences.WithHotkey(command, registeredHotkey));
+                    _trayIconService.ShowInfo(
+                        $"{CommandDisplayName(command)} hotkey adjusted",
+                        $"The configured {preferredHotkey} was unavailable. Using {registeredHotkey}.");
+                }
             }
             catch (Exception ex)
             {
                 _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey restore failed", ex.Message);
             }
         }
+    }
+
+    private void ShowHotkeyStatus((IReadOnlyList<string> Adjusted, IReadOnlyList<string> Unavailable) status)
+    {
+        if (status.Adjusted.Count == 0 && status.Unavailable.Count == 0)
+        {
+            return;
+        }
+
+        var messages = new List<string>();
+        if (status.Adjusted.Count > 0)
+        {
+            messages.Add($"Adjusted: {string.Join("; ", status.Adjusted)}");
+        }
+
+        if (status.Unavailable.Count > 0)
+        {
+            messages.Add($"Unavailable: {string.Join("; ", status.Unavailable)}");
+        }
+
+        _trayIconService.ShowInfo("Hotkey registration", string.Join(Environment.NewLine, messages));
     }
 
     private static string CommandDisplayName(LookupCommand command)
