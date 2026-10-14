@@ -15,6 +15,10 @@ screenshots/
 records/
 dictionary.local.tsv
 
+# Agent loop runtime state (transient control files, never commit)
+docs/*.pid
+docs/*.stop
+
 # Local tooling
 .idea/
 .vscode/

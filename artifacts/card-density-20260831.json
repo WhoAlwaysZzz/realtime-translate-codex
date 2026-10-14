@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-08-31T02:11:41+08:00",
+  "verification": "real replay index 700 after Debug build",
+  "replay": { "ocrExact": "1/1", "contextTop1Sense": "1/1", "replayFailures": 0, "timeouts": 0 },
+  "primaryDefinition": "本句中，calamity作名词，指“灾难、不幸事件”。",
+  "visibleLinePolicy": {
+    "maxBlocks": 5,
+    "priority": ["title", "sentenceMeaning", "contextAlignment", "oneMetadataBlock", "usage"],
+    "metadataPrecedence": "breakdown over word family"
+  },
+  "note": "Replay confirms the production sentence-meaning card; unit coverage verifies the five-block cap and metadata precedence."
+}

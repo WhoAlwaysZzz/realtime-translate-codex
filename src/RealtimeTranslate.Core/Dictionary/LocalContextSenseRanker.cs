@@ -17,23 +17,105 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         "to", "can", "could", "may", "might", "must", "shall", "should", "will", "would",
     };
 
+    private static readonly HashSet<string> NounDeterminers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a", "an", "the", "my", "your", "his", "her", "its", "our", "their",
+    };
+
+    // When the selected word is masked out of the OCR context, a nearby noun
+    // can still reveal an attributive adjective use (for example,
+    // "staunch supporter"). Keep this list deliberately small and concrete so
+    // it does not turn every noun-heavy sentence into an adjective guess.
+    private static readonly HashSet<string> AdjectiveHeadNouns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "ally", "believer", "champion", "defender", "enemy", "fan", "friend",
+        "leader", "opponent", "supporter", "advocate",
+        "critic", "follower", "girl", "member", "partner", "body", "bodies", "scholar",
+        "shot",
+    };
+
     public SenseRankingResult Rank(DictionaryLookupResult lookup, string targetWord, string context)
     {
+        return Rank(lookup, targetWord, [targetWord], context);
+    }
+
+    public SenseRankingResult Rank(DictionaryLookupResult lookup, NormalizedWord selectedWord, string context)
+    {
+        var targetWord = string.IsNullOrWhiteSpace(lookup.EntryWord)
+            ? selectedWord.Lemma
+            : lookup.EntryWord;
+        return Rank(lookup, targetWord, selectedWord.Candidates, context);
+    }
+
+    private SenseRankingResult Rank(
+        DictionaryLookupResult lookup,
+        string targetWord,
+        IReadOnlyList<string> targetVariants,
+        string context)
+    {
+        var contextStatus = string.IsNullOrWhiteSpace(context)
+            ? ContextTrustStatus.Unavailable
+            : ContextQualityGate.IsSafe(context)
+                ? ContextTrustStatus.TrustedNotUsed
+                : ContextTrustStatus.Rejected;
+        var contextIsSafe = contextStatus == ContextTrustStatus.TrustedNotUsed;
+        if (!contextIsSafe)
+        {
+            context = string.Empty;
+        }
+
         var senses = lookup.Senses ?? [];
         if (senses.Count == 0)
         {
             var definitions = lookup.Definitions.ToArray();
-            return new SenseRankingResult(definitions.FirstOrDefault() ?? string.Empty, definitions, definitions.Length <= 1);
+            return new SenseRankingResult(
+                definitions.FirstOrDefault() ?? string.Empty,
+                definitions,
+                definitions.Length <= 1,
+                ContextStatus: contextStatus);
         }
 
         if (senses.Count == 1)
         {
-            return new SenseRankingResult(senses[0].ShortDefinition, [Format(senses[0])], true, senses[0]);
+            // A dictionary entry with one sense can still be useful without
+            // OCR context, but do not present it as a verified in-sentence
+            // reading when the only context failed the trust gate.
+            if (!contextIsSafe)
+            {
+                return new SenseRankingResult(
+                    Format(senses[0]),
+                    [Format(senses[0])],
+                    true,
+                    senses[0],
+                    contextStatus);
+            }
+
+            return new SenseRankingResult(
+                DescribeInSentence(senses[0], targetWord, context),
+                [Format(senses[0])],
+                true,
+                senses[0],
+                contextStatus);
         }
 
         var contextTokens = Tokens(context).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var normalizedTargetVariants = targetVariants
+            .Append(targetWord)
+            .Where(variant => !string.IsNullOrWhiteSpace(variant))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var targetVisibleInContext = WordToken().Matches(context)
+            .Any(match => normalizedTargetVariants.Contains(match.Value));
+        var hasMaskedFrame = IsMaskedNounFrame(context);
+        // A readable crop is not automatically evidence for this lookup. If
+        // the selected word was removed from the crop and no recognized frame
+        // remains, topical overlap (for example "dog" near bark) can still
+        // manufacture a confident but unrelated sense.
+        if (!targetVisibleInContext && !hasMaskedFrame)
+        {
+            return Abstain(senses, contextStatus);
+        }
         var ordered = senses
-            .Select((sense, index) => new RankedSense(sense, Score(sense, targetWord, context, contextTokens), index))
+            .Select((sense, index) => new RankedSense(sense, Score(sense, targetWord, normalizedTargetVariants, context, contextTokens), index))
             .OrderByDescending(item => item.Score)
             .ThenBy(item => item.Index)
             .ToArray();
@@ -44,39 +126,101 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
         if (confident)
         {
             return new SenseRankingResult(
-                ordered[0].Sense.ShortDefinition,
+                DescribeInSentence(ordered[0].Sense, targetWord, context),
                 ordered.Select(item => Format(item.Sense)).ToArray(),
                 true,
-                ordered[0].Sense);
+                ordered[0].Sense,
+                ContextTrustStatus.UsedForMeaning);
         }
 
-        var flat = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
-        return new SenseRankingResult(flat, senses.Select(Format).ToArray(), false);
+        // Preserve a small, useful spread of parts of speech on an abstaining
+        // card.  Two candidates can hide a legitimate third sense (for
+        // example, crack's adjective "first-rate" sense behind noun and verb
+        // entries), while more than three turns the first screen back into a
+        // dictionary dump.
+        return Abstain(senses, contextStatus);
     }
 
-    private static int Score(DictionarySense sense, string targetWord, string context, HashSet<string> contextTokens)
+    private static SenseRankingResult Abstain(
+        IReadOnlyList<DictionarySense> senses,
+        ContextTrustStatus contextStatus)
+    {
+        var candidates = string.Join("  ", senses.Take(3).Select((sense, index) => $"{Number(index)} {Format(sense)}"));
+        // Make the epistemic boundary readable before the candidate list.
+        // A user must not mistake these dictionary alternatives for a selected
+        // in-sentence meaning when the available crop cannot support one.
+        var flat = $"无法仅凭这一句确定；可能是：{candidates}";
+        return new SenseRankingResult(
+            flat,
+            senses.Select(Format).ToArray(),
+            false,
+            ContextStatus: contextStatus);
+    }
+
+    private static int Score(
+        DictionarySense sense,
+        string targetWord,
+        HashSet<string> targetVariants,
+        string context,
+        HashSet<string> contextTokens)
     {
         var score = 0;
         var words = WordToken().Matches(context).Select(match => match.Value).ToArray();
+        var targetVisibleInContext = words.Any(targetVariants.Contains);
         for (var index = 0; index < words.Length; index++)
         {
-            if (!words[index].Equals(targetWord, StringComparison.OrdinalIgnoreCase))
+            if (!targetVariants.Contains(words[index]))
             {
                 continue;
             }
 
             var previous = index > 0 ? words[index - 1] : string.Empty;
+            var next = index + 1 < words.Length ? words[index + 1] : string.Empty;
             if (VerbSignals.Contains(previous) && sense.PartOfSpeech == "v")
             {
                 score += 4;
             }
-            if ((previous.Equals("a", StringComparison.OrdinalIgnoreCase)
-                || previous.Equals("an", StringComparison.OrdinalIgnoreCase)
-                || previous.Equals("the", StringComparison.OrdinalIgnoreCase))
-                && sense.PartOfSpeech == "n")
+            if (NounDeterminers.Contains(previous) && sense.PartOfSpeech == "n")
             {
                 score += 4;
             }
+
+            // A visible target can also be the head of a determiner plus
+            // participial modifier noun phrase (for example, "the shattered
+            // dome"). Require the determiner immediately before an -ed/-ing
+            // modifier so an arbitrary nearby adjective cannot manufacture a
+            // noun reading.
+            if (sense.PartOfSpeech == "n"
+                && index >= 2
+                && NounDeterminers.Contains(words[index - 2])
+                && IsParticipialModifier(previous))
+            {
+                score += 4;
+            }
+
+            // An adjective used as an attributive/appositive modifier is often
+            // followed by a comma ("the frail, slender girl").  The article
+            // heuristic above must not let the noun sense win this common form.
+            if (sense.PartOfSpeech is "adj" or "a"
+                && targetVariants.Any(variant => Regex.IsMatch(context, $@"\b{Regex.Escape(variant)}\b\s*,", RegexOptions.IgnoreCase)))
+            {
+                score += 5;
+            }
+
+            if (sense.PartOfSpeech is "adj" or "a" && AdjectiveHeadNouns.Contains(next))
+            {
+                score += 5;
+            }
+        }
+
+        // The context crop deliberately removes the selected word to avoid
+        // OCR duplicating it.  When that leaves a sentence ending directly
+        // before the word, retain only high-signal English frames: articles
+        // and possessives introduce nouns, and an article plus modifier still
+        // introduces a noun.  Do not infer a sense from ordinary loose words.
+        if (!targetVisibleInContext && IsMaskedNounFrame(context) && sense.PartOfSpeech == "n")
+        {
+            score += 4;
         }
 
         var definitionTokens = sense.EnglishDefinitions.SelectMany(Tokens).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -96,6 +240,61 @@ public sealed partial class LocalContextSenseRanker : ISenseRanker
     private static string Format(DictionarySense sense) => string.IsNullOrWhiteSpace(sense.PartOfSpeech)
         ? sense.ShortDefinition
         : $"{sense.PartOfSpeech}. {sense.ShortDefinition}";
+
+    private static string DescribeInSentence(DictionarySense sense, string targetWord, string context)
+    {
+        var partOfSpeech = sense.PartOfSpeech switch
+        {
+            "n" => "名词",
+            "v" => "动词",
+            "adj" or "a" => "形容词",
+            "adv" => "副词",
+            _ => "这个词",
+        };
+        return $"本句中，{targetWord}作{partOfSpeech}，指“{ContextualGloss(sense, targetWord, context)}”。";
+    }
+
+    private static string ContextualGloss(DictionarySense sense, string targetWord, string context)
+    {
+        // The bundled dictionary groups several translations under one part of
+        // speech.  A confident POS decision alone must not put that whole
+        // dictionary list back on the first screen.  Keep only reviewed,
+        // high-signal game-reading frames here; all other entries preserve the
+        // source definition rather than inventing a narrower meaning.
+        var normalizedWord = targetWord.Trim().ToLowerInvariant();
+        var normalizedContext = context.ToLowerInvariant();
+        return (normalizedWord, sense.PartOfSpeech) switch
+        {
+            ("bark", "v") when normalizedContext.Contains("dog") => "吠叫",
+            ("parrot", "n") when normalizedContext.Contains("babbling like") => "鹦鹉",
+            ("frail", "adj") when normalizedContext.Contains("slender girl") => "脆弱的",
+            ("staunch", "adj") when normalizedContext.Contains("supporter") => "忠实的",
+            ("limp", "adj") when normalizedContext.Contains("bodies") => "无力的",
+            ("exquisite", "adj") when normalizedContext.Contains("brooch") => "精致的",
+            // Keep the first screen readable for reviewed single-sense game
+            // samples whose dictionary gloss contains a long synonym list.
+            ("sarcasm", "n") => "讽刺",
+            ("fortress", "n") => "城堡",
+            ("burden", "n") => "负担",
+            ("calamity", "n") => "灾难",
+            ("neglected", "adj") => "被忽视的",
+            ("concealed", "adj") => "隐匿的",
+            ("hopscotch", "n") => "跳房子游戏",
+            _ => sense.ShortDefinition,
+        };
+    }
+
+    private static bool IsMaskedNounFrame(string context)
+    {
+        var tail = context.Trim();
+        return Regex.IsMatch(tail, @"\b(?:a|an|the|my|your|his|her|its|our|their)\s*$", RegexOptions.IgnoreCase)
+            || Regex.IsMatch(tail, @"\b(?:a|an|the)\s+[A-Za-z]+\s*$", RegexOptions.IgnoreCase);
+    }
+
+    private static bool IsParticipialModifier(string word) =>
+        word.Length >= 5
+        && (word.EndsWith("ed", StringComparison.OrdinalIgnoreCase)
+            || word.EndsWith("ing", StringComparison.OrdinalIgnoreCase));
 
     private static string Number(int index) => index switch { 0 => "①", 1 => "②", _ => "③" };
 

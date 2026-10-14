@@ -79,13 +79,18 @@ public sealed class LookupOverlayWindow : Window
 
     private static UIElement BuildContent(LookupPresentation presentation)
     {
+        // The overlay is the product's actual first screen. Keep it in lockstep
+        // with the compact hierarchy exercised by the core formatter rather
+        // than rendering every available dictionary and study field here.
+        var visibleLines = LookupCardTextFormatter.VisibleLines(presentation);
+        var detailLines = visibleLines.Skip(2).ToArray();
+
         var root = new Grid();
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        foreach (var _ in detailLines)
+        {
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
 
         var accent = new Border
         {
@@ -95,7 +100,7 @@ public sealed class LookupOverlayWindow : Window
             CornerRadius = new CornerRadius(2),
             Background = presentation.IsError ? UiTheme.Brush(UiTheme.Danger) : UiTheme.Brush(UiTheme.Accent),
         };
-        Grid.SetRowSpan(accent, 6);
+        Grid.SetRowSpan(accent, Math.Max(1, root.RowDefinitions.Count));
         root.Children.Add(accent);
 
         var topRow = new Grid();
@@ -145,63 +150,23 @@ public sealed class LookupOverlayWindow : Window
         Grid.SetRow(topRow, 0);
         root.Children.Add(topRow);
 
-        var meta = new WpfTextBlock
+        for (var index = 0; index < detailLines.Length; index++)
         {
-            Text = presentation.QueryCount > 0 ? $"第 {presentation.QueryCount} 次 · {presentation.Subtitle}" : presentation.Subtitle,
-            Margin = new Thickness(0, 9, 0, 0),
-            FontSize = 12,
-            Foreground = UiTheme.Brush(UiTheme.TextSecondary),
-            TextWrapping = TextWrapping.Wrap,
-        };
-        Grid.SetRow(meta, 1);
-        root.Children.Add(meta);
-
-        if (presentation.Definitions.Count > 1)
-        {
-            var extra = new WpfTextBlock
+            var line = detailLines[index];
+            var detail = new WpfTextBlock
             {
-                Text = string.Join(" / ", presentation.Definitions.Skip(1).Take(2)),
-                Margin = new Thickness(0, 6, 0, 0),
-                FontSize = 12,
-                Foreground = UiTheme.Brush(UiTheme.TextSecondary),
+                Text = line,
+                Margin = new Thickness(0, index == 0 ? 7 : 6, 0, 0),
+                FontSize = line.StartsWith("整句句意对齐：", StringComparison.Ordinal) ? 11 : 12,
+                Foreground = line.StartsWith("用法/语境  ", StringComparison.Ordinal)
+                    ? UiTheme.Brush(UiTheme.AccentWarm)
+                    : UiTheme.Brush(UiTheme.TextSecondary),
                 TextWrapping = TextWrapping.Wrap,
             };
-            Grid.SetRow(extra, 2);
-            root.Children.Add(extra);
-        }
-
-        if (!string.IsNullOrWhiteSpace(presentation.WordBreakdown))
-        {
-            var breakdown = CreateInsightText(LookupCardTextFormatter.Breakdown(presentation), UiTheme.TextPrimary, 3);
-            root.Children.Add(breakdown);
-        }
-
-        if (presentation.WordFamily is { Count: > 0 })
-        {
-            var family = CreateInsightText(LookupCardTextFormatter.Family(presentation), UiTheme.TextSecondary, 4);
-            root.Children.Add(family);
-        }
-
-        if (!string.IsNullOrWhiteSpace(presentation.ContextHint))
-        {
-            var context = CreateInsightText(LookupCardTextFormatter.Usage(presentation), UiTheme.AccentWarm, 5);
-            root.Children.Add(context);
+            Grid.SetRow(detail, index + 1);
+            root.Children.Add(detail);
         }
 
         return UiTheme.CreatePanel(root, new Thickness(14, 11, 14, 13));
-    }
-
-    private static WpfTextBlock CreateInsightText(string text, System.Windows.Media.Color color, int row)
-    {
-        var block = new WpfTextBlock
-        {
-            Text = text,
-            Margin = new Thickness(0, 7, 0, 0),
-            FontSize = 12,
-            Foreground = UiTheme.Brush(color),
-            TextWrapping = TextWrapping.Wrap,
-        };
-        Grid.SetRow(block, row);
-        return block;
     }
 }

@@ -116,18 +116,30 @@ public sealed class AppController : IDisposable
         _rightDragSelectionService.SelectionCompleted += (_, selection) => StartLookup(selection);
     }
 
-    public void Start()
+    public void Start(bool enableSystemIntegration = true, bool registerHotkeys = true)
     {
         Directory.CreateDirectory(_settings.ArchiveRoot);
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "screenshots"));
         Directory.CreateDirectory(Path.Combine(_settings.ArchiveRoot, "records"));
         _preferences = _preferencesStore.Load();
-        RegisterCommandHotkeys();
+        if (!enableSystemIntegration)
+        {
+            return;
+        }
+
+        if (registerHotkeys)
+        {
+            var hotkeyStatus = RegisterCommandHotkeys();
+            _rightDragSelectionService.Start();
+            UpdateTray();
+            _trayIconService.ShowInfo(
+                "Realtime Translate Codex",
+                $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, {_preferences.RecentLookupsHotkey} to replay, or {_preferences.ExplainSelectionHotkey} to explain text.");
+            ShowHotkeyStatus(hotkeyStatus);
+            return;
+        }
+
         _rightDragSelectionService.Start();
-        UpdateTray();
-        _trayIconService.ShowInfo(
-            "Realtime Translate Codex",
-            $"Ready. Right-drag a word, press {_preferences.Hotkey}, press {_preferences.ManualLookupHotkey} to type, {_preferences.RecentLookupsHotkey} to replay, or {_preferences.ExplainSelectionHotkey} to explain text.");
     }
 
     public void Dispose()
@@ -370,13 +382,20 @@ public sealed class AppController : IDisposable
     }
 
     private async Task LookupSelectionCoreAsync(ScreenSelection selection)
+        => await LookupSelectionCoreAsync(selection, null);
+
+    /// <summary>Runs the production lookup pipeline against a supplied capture (used by archive replay).</summary>
+    public Task ReplayAsync(CapturedSelection capture)
+        => LookupSelectionCoreAsync(capture.Selection, capture);
+
+    private async Task LookupSelectionCoreAsync(ScreenSelection selection, CapturedSelection? suppliedCapture)
     {
-        CapturedSelection? capture = null;
+        CapturedSelection? capture = suppliedCapture;
         IReadOnlyList<OcrCandidate> candidates = [];
 
         try
         {
-            capture = await _screenshotService.CaptureAsync(selection, _saveScreenshots);
+            capture ??= await _screenshotService.CaptureAsync(selection, _saveScreenshots);
             candidates = await _ocrService.RecognizeAsync(capture.CroppedImagePng);
             var contextCandidates = await _ocrService.RecognizeAsync(capture.ContextImagePng);
             var contextText = _ocrTextComposer.Compose(contextCandidates);
@@ -388,7 +407,7 @@ public sealed class AppController : IDisposable
 
             if (string.IsNullOrWhiteSpace(recognizedText))
             {
-                var record = BuildRecord(selection, capture.ScreenshotPath, string.Empty, NormalizedWord.Empty, ["未识别到单词"], candidates);
+                var record = BuildRecord(selection, capture.ScreenshotPath, string.Empty, NormalizedWord.Empty, ["未识别到单词"], candidates, contextText);
                 SafeRecord(record);
                 _overlayPresenter.Show(new LookupPresentation("未识别到单词", "OCR returned no word", ["请试着框得更贴近单词"], "请试着框得更贴近单词", 0, IsError: true));
                 return;
@@ -397,7 +416,7 @@ public sealed class AppController : IDisposable
             var normalized = _wordNormalizer.Normalize(recognizedText);
             var lookup = _dictionaryService.Lookup(normalized);
             var ranking = lookup.Found
-                ? _senseRanker.Rank(lookup, lookup.EntryWord, contextText)
+                ? _senseRanker.Rank(lookup, normalized, contextText)
                 : new SenseRankingResult("未找到释义", ["未找到释义"], false);
             var definitions = ranking.Definitions;
             var title = string.IsNullOrWhiteSpace(normalized.DisplayWord) ? recognizedText : normalized.DisplayWord;
@@ -406,9 +425,17 @@ public sealed class AppController : IDisposable
             var primaryDefinition = ranking.PrimaryDefinition;
             var insight = LookupInsight(normalized, lookup);
             var usageHint = insight.ContextHint;
+            var insightEvidence = insight.HasEvidence
+                ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}"
+                : string.Empty;
             if (usageHint.Length == 0 && insight.Breakdown.Length == 0)
             {
-                usageHint = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+                var usage = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+                usageHint = usage.Text;
+                if (usage.HasEvidence)
+                {
+                    insightEvidence = $"{usage.EvidenceSource}；置信度 {usage.Confidence:P0}";
+                }
             }
             var subtitle = lookup.Found
                 ? $"lemma: {lookup.EntryWord} · OCR: {recognizedText}"
@@ -423,9 +450,11 @@ public sealed class AppController : IDisposable
                 WordBreakdown: insight.Breakdown,
                 WordFamily: insight.Family,
                 ContextHint: usageHint,
-                FrequencyBand: lookup.FrequencyBand);
+                FrequencyBand: lookup.FrequencyBand,
+                ContextStatus: ranking.ContextStatus,
+                InsightEvidence: insightEvidence);
 
-            SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates));
+            SafeRecord(BuildRecord(selection, capture.ScreenshotPath, recognizedText, normalized, definitions, candidates, contextText, primaryDefinition));
             ShowAndRemember(presentation);
         }
         catch (Exception ex)
@@ -474,9 +503,17 @@ public sealed class AppController : IDisposable
         var primaryDefinition = ranking.PrimaryDefinition;
         var insight = LookupInsight(normalized, lookup);
         var usageHint = insight.ContextHint;
+        var insightEvidence = insight.HasEvidence
+            ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}"
+            : string.Empty;
         if (usageHint.Length == 0 && insight.Breakdown.Length == 0)
         {
-            usageHint = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+            var usage = _usageHintService.GetHint(lookup, ranking, lookup.EntryWord);
+            usageHint = usage.Text;
+            if (usage.HasEvidence)
+            {
+                insightEvidence = $"{usage.EvidenceSource}；置信度 {usage.Confidence:P0}";
+            }
         }
         var subtitle = lookup.Found
             ? $"lemma: {lookup.EntryWord} · {source}"
@@ -492,7 +529,9 @@ public sealed class AppController : IDisposable
             WordBreakdown: insight.Breakdown,
             WordFamily: insight.Family,
             ContextHint: usageHint,
-            FrequencyBand: lookup.FrequencyBand));
+            FrequencyBand: lookup.FrequencyBand,
+            ContextStatus: ranking.ContextStatus,
+            InsightEvidence: insightEvidence));
     }
 
     private void ShowAndRemember(LookupPresentation presentation)
@@ -519,7 +558,9 @@ public sealed class AppController : IDisposable
         string recognizedText,
         NormalizedWord normalized,
         IReadOnlyList<string> definitions,
-        IReadOnlyList<OcrCandidate> candidates)
+        IReadOnlyList<OcrCandidate> candidates,
+        string contextText = "",
+        string primaryDefinition = "")
     {
         return new LookupRecord(
             DateTimeOffset.Now,
@@ -529,7 +570,9 @@ public sealed class AppController : IDisposable
             definitions,
             selection,
             screenshotPath,
-            candidates);
+            candidates,
+            contextText,
+            primaryDefinition);
     }
 
     private void SafeRecord(LookupRecord record)
@@ -696,15 +739,23 @@ public sealed class AppController : IDisposable
         try
         {
             var updated = _preferences.WithHotkey(command, window.CapturedHotkey);
-            RegisterCommandHotkey(command, updated.GetHotkey(command));
+            var registeredHotkey = RegisterCommandHotkey(command, updated.GetHotkey(command));
+            updated = updated.WithHotkey(command, registeredHotkey);
             SavePreferences(updated);
-            _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey updated", $"Current hotkey: {updated.GetHotkey(command)}");
+            var message = registeredHotkey == window.CapturedHotkey
+                ? $"Current hotkey: {registeredHotkey}"
+                : $"The configured {window.CapturedHotkey} was unavailable. Using {registeredHotkey}.";
+            _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey updated", message);
         }
         catch (Exception ex)
         {
             try
             {
-                RegisterCommandHotkey(command, _preferences.GetHotkey(command));
+                var restoredHotkey = RegisterCommandHotkey(command, _preferences.GetHotkey(command));
+                if (restoredHotkey != _preferences.GetHotkey(command))
+                {
+                    SavePreferences(_preferences.WithHotkey(command, restoredHotkey));
+                }
             }
             catch
             {
@@ -730,20 +781,45 @@ public sealed class AppController : IDisposable
         SavePreferences(_preferences with { SelectionMode = selectionMode });
     }
 
-    private void RegisterCommandHotkeys()
+    private (IReadOnlyList<string> Adjusted, IReadOnlyList<string> Unavailable) RegisterCommandHotkeys()
     {
+        var updatedPreferences = _preferences;
+        var adjusted = new List<string>();
+        var unavailable = new List<string>();
+
         foreach (var command in Enum.GetValues<LookupCommand>())
         {
-            RegisterCommandHotkey(command, _preferences.GetHotkey(command));
+            var preferredHotkey = updatedPreferences.GetHotkey(command);
+            try
+            {
+                var registeredHotkey = RegisterCommandHotkey(command, preferredHotkey);
+                if (registeredHotkey != preferredHotkey)
+                {
+                    updatedPreferences = updatedPreferences.WithHotkey(command, registeredHotkey);
+                    adjusted.Add($"{CommandDisplayName(command)}: {preferredHotkey} -> {registeredHotkey}");
+                }
+            }
+            catch (InvalidOperationException ex)
+            {
+                unavailable.Add($"{CommandDisplayName(command)}: {ex.Message}");
+            }
         }
+
+        if (updatedPreferences != _preferences)
+        {
+            SavePreferences(updatedPreferences);
+        }
+
+        return (adjusted, unavailable);
     }
 
     private WordInsight LookupInsight(NormalizedWord normalized, DictionaryLookupResult lookup)
     {
         var surface = _wordInsightService.Lookup(normalized.DisplayWord);
-        return surface != WordInsight.Empty
+        var insight = surface != WordInsight.Empty
             ? surface
             : _wordInsightService.Lookup(lookup.Found ? lookup.EntryWord : normalized.Lemma);
+        return insight.HasEvidence ? insight : WordInsight.Empty;
     }
 
     private void UnregisterCommandHotkeys()
@@ -792,11 +868,12 @@ public sealed class AppController : IDisposable
     {
         try
         {
-            RegisterCommandHotkeys();
+            var hotkeyStatus = RegisterCommandHotkeys();
             _rightDragSelectionService.Start();
             _isPaused = false;
             UpdateTray();
             _trayIconService.ShowInfo("Realtime Translate Codex resumed", "Word lookup is active again.");
+            ShowHotkeyStatus(hotkeyStatus);
         }
         catch (Exception ex)
         {
@@ -806,9 +883,27 @@ public sealed class AppController : IDisposable
         }
     }
 
-    private void RegisterCommandHotkey(LookupCommand command, HotkeyGesture hotkey)
+    private HotkeyGesture RegisterCommandHotkey(LookupCommand command, HotkeyGesture preferredHotkey)
     {
-        _hotkeyServices[command].Register(hotkey);
+        Exception? lastError = null;
+        var tried = new List<string>();
+        foreach (var candidate in HotkeyFallbackPolicy.GetCandidates(preferredHotkey))
+        {
+            tried.Add(candidate.ToString());
+            try
+            {
+                _hotkeyServices[command].Register(candidate);
+                return candidate;
+            }
+            catch (InvalidOperationException ex)
+            {
+                lastError = ex;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Unable to register {CommandDisplayName(command)} hotkey. Tried: {string.Join(", ", tried)}.",
+            lastError);
     }
 
     private void EnsureHotkeyRegistered()
@@ -829,13 +924,41 @@ public sealed class AppController : IDisposable
 
             try
             {
-                RegisterCommandHotkey(command, preferredHotkey);
+                var registeredHotkey = RegisterCommandHotkey(command, preferredHotkey);
+                if (registeredHotkey != preferredHotkey)
+                {
+                    SavePreferences(_preferences.WithHotkey(command, registeredHotkey));
+                    _trayIconService.ShowInfo(
+                        $"{CommandDisplayName(command)} hotkey adjusted",
+                        $"The configured {preferredHotkey} was unavailable. Using {registeredHotkey}.");
+                }
             }
             catch (Exception ex)
             {
                 _trayIconService.ShowInfo($"{CommandDisplayName(command)} hotkey restore failed", ex.Message);
             }
         }
+    }
+
+    private void ShowHotkeyStatus((IReadOnlyList<string> Adjusted, IReadOnlyList<string> Unavailable) status)
+    {
+        if (status.Adjusted.Count == 0 && status.Unavailable.Count == 0)
+        {
+            return;
+        }
+
+        var messages = new List<string>();
+        if (status.Adjusted.Count > 0)
+        {
+            messages.Add($"Adjusted: {string.Join("; ", status.Adjusted)}");
+        }
+
+        if (status.Unavailable.Count > 0)
+        {
+            messages.Add($"Unavailable: {string.Join("; ", status.Unavailable)}");
+        }
+
+        _trayIconService.ShowInfo("Hotkey registration", string.Join(Environment.NewLine, messages));
     }
 
     private static string CommandDisplayName(LookupCommand command)

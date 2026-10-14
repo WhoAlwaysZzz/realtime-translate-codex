@@ -1,0 +1,198 @@
+{
+  "GeneratedAt": "2026-08-30T20:01:01.2638956Z",
+  "SourceSummaryPath": "D:\\Projects\\Code\\realtime-translate-codex\\artifacts\\blind-review-source-explicit-uncertainty-clean-20260831.json",
+  "ReviewInstructions": [
+    "Read only the target word, available context, and actual first-screen meaning.",
+    "For each card choose: understandable, unclear, or should-abstain.",
+    "Record a short reason. Do not open the labelled replay manifest until the form is complete.",
+    "A card is understandable only if its first-screen meaning lets you continue reading this sentence."
+  ],
+  "Cards": [
+    {
+      "ReviewId": "card-01",
+      "SourceIndex": 845,
+      "TargetWord": "exquisite",
+      "Context": "She holds out a brooch. piece so intangible figment of wistful dream. that it, too, seems to be an",
+      "FirstScreenMeaning": "本句中，exquisite作形容词，指“精致的”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-02",
+      "SourceIndex": 751,
+      "TargetWord": "fortress",
+      "Context": "Finally, he is back in his",
+      "FirstScreenMeaning": "本句中，fortress作名词，指“城堡”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-03",
+      "SourceIndex": 1123,
+      "TargetWord": "bark",
+      "Context": "（本次未取得可用上下文）",
+      "FirstScreenMeaning": "无法仅凭这一句确定；可能是：① n. 树皮、吠声  ② v. 吠、叫骂、喊出、剥树皮",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-04",
+      "SourceIndex": 281,
+      "TargetWord": "golems",
+      "Context": "Communicator Hofmann, the targets showed up! But are attacking us!",
+      "FirstScreenMeaning": "本句中，golem作名词，指“机器人”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-05",
+      "SourceIndex": 600,
+      "TargetWord": "hopscotch",
+      "Context": "It's a game of unlike any other.",
+      "FirstScreenMeaning": "本句中，hopscotch作名词，指“跳房子游戏”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-06",
+      "SourceIndex": 700,
+      "TargetWord": "calamity",
+      "Context": "We've talked about the \"limit\" of things before rest team to quit experiment. Yc upon calamity on our people, for not",
+      "FirstScreenMeaning": "本句中，calamity作名词，指“灾难”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-07",
+      "SourceIndex": 1027,
+      "TargetWord": "crack",
+      "Context": "Admiral Igor Our Second Lieutenant Lopera is a hot. I trained her to be nothing less. Yet, no soldier of Zeno would take pride in an execution.",
+      "FirstScreenMeaning": "无法仅凭这一句确定；可能是：① n. 裂缝、爆裂声  ② v. (使)爆裂、(使)裂开、(使)发出爆裂声  ③ adj. 第一流的",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-08",
+      "SourceIndex": 1030,
+      "TargetWord": "attendant",
+      "Context": "Lopera hands the rifle to Admiral Igor. He stands in s a e Säo Paulo. moves her gloves, and turns face co onnade, away from blazing sun oi",
+      "FirstScreenMeaning": "无法仅凭这一句确定；可能是：① n. 随从、侍者、出席者  ② adj. 侍候的、伴随的、出席的",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-09",
+      "SourceIndex": 563,
+      "TargetWord": "staunch",
+      "Context": "ptography Lead lay have made his contributions to Laplace, but that was eight years ago. he's just an irritating defeatist and supporter of anocentrism.",
+      "FirstScreenMeaning": "本句中，staunch作形容词，指“忠实的”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-10",
+      "SourceIndex": 1028,
+      "TargetWord": "burden",
+      "Context": "Admiral Igor alls on me. This was my fault,",
+      "FirstScreenMeaning": "本句中，burden作名词，指“负担”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-11",
+      "SourceIndex": 1122,
+      "TargetWord": "shelter",
+      "Context": "（本次未取得可用上下文）",
+      "FirstScreenMeaning": "无法仅凭这一句确定；可能是：① n. 庇护所、避难所、庇护  ② v. 庇护、保护、隐匿、躲避",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-12",
+      "SourceIndex": 1029,
+      "TargetWord": "limp",
+      "Context": "The soldiers collapse, their bodies falling among weeds.",
+      "FirstScreenMeaning": "本句中，limp作形容词，指“无力的”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-13",
+      "SourceIndex": 500,
+      "TargetWord": "frail",
+      "Context": "Her voice softens as she looks at th slender girl in front of her.",
+      "FirstScreenMeaning": "本句中，frail作形容词，指“脆弱的”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-14",
+      "SourceIndex": 187,
+      "TargetWord": "sarcasm",
+      "Context": "Her tone belies a hint of",
+      "FirstScreenMeaning": "本句中，sarcasm作名词，指“讽刺”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-15",
+      "SourceIndex": 200,
+      "TargetWord": "parrot",
+      "Context": "Marcus Gosh, she's babbling like a",
+      "FirstScreenMeaning": "本句中，parrot作名词，指“鹦鹉”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-16",
+      "SourceIndex": 939,
+      "TargetWord": "thrust",
+      "Context": "Sonetto The islanders were vulnerability then exp 01 e arms. o war, their beliefs shattered, and th by Manus, who welcomed them v",
+      "FirstScreenMeaning": "无法仅凭这一句确定；可能是：① n. 插、戳、刺  ② v. 插入、猛推、刺、插、戳",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-17",
+      "SourceIndex": 657,
+      "TargetWord": "neglected",
+      "Context": "888 The long- uestions have created a cloud of dou now, boulder fate is falling on us, and we are teeter",
+      "FirstScreenMeaning": "本句中，neglected作形容词，指“被忽视的”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-18",
+      "SourceIndex": 1090,
+      "TargetWord": "concealed",
+      "Context": "hibition, I felt a familiar afflatus. It was d the traces of concealment. in",
+      "FirstScreenMeaning": "本句中，concealed作形容词，指“隐匿的”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-19",
+      "SourceIndex": 799,
+      "TargetWord": "dome",
+      "Context": "e, its seats buried under the shattere",
+      "FirstScreenMeaning": "本句中，dome作名词，指“圆顶”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    },
+    {
+      "ReviewId": "card-20",
+      "SourceIndex": 1127,
+      "TargetWord": "bark",
+      "Context": "The dog began to bark",
+      "FirstScreenMeaning": "本句中，bark作动词，指“吠叫”。",
+      "ReviewerDecision": "",
+      "ReviewerRationale": ""
+    }
+  ],
+  "Integrity": {
+    "CardCount": 20,
+    "ContainsExpectedSense": false,
+    "ContainsExpectedOutcome": false,
+    "ContainsAutomatedVerdict": false
+  }
+}

@@ -10,8 +10,11 @@ namespace RealtimeTranslate.App.Capture;
 public sealed class WindowsScreenshotService : IScreenshotService
 {
     private const int CropPaddingPixels = 16;
-    private const int ContextHorizontalPaddingPixels = 420;
-    private const int ContextVerticalPaddingPixels = 48;
+    private const int ContextHorizontalPaddingPixels = 800;
+    // Include nearby dialogue lines above/below a word selection. The desktop
+    // fixture places its sentence roughly 100px below the target; 48px cropped
+    // that line out of the context OCR input.
+    private const int ContextVerticalPaddingPixels = 180;
     private readonly string _screenshotsDirectory;
 
     public WindowsScreenshotService(string archiveRoot)
@@ -45,7 +48,8 @@ public sealed class WindowsScreenshotService : IScreenshotService
         }
 
         var wordCrop = CropToPng(full, ClampSelectionToBounds(selection, bounds, CropPaddingPixels, CropPaddingPixels));
-        var contextCrop = CropToPng(full, ClampSelectionToBounds(selection, bounds, ContextHorizontalPaddingPixels, ContextVerticalPaddingPixels));
+        var contextRectangle = ClampSelectionToBounds(selection, bounds, ContextHorizontalPaddingPixels, ContextVerticalPaddingPixels);
+        var contextCrop = CropContextToPng(full, contextRectangle);
 
         return Task.FromResult(new CapturedSelection(selection, screenshotPath, wordCrop, contextCrop));
     }
@@ -53,6 +57,14 @@ public sealed class WindowsScreenshotService : IScreenshotService
     private static byte[] CropToPng(Bitmap full, Rectangle rectangle)
     {
         using var cropped = full.Clone(rectangle, PixelFormat.Format32bppArgb);
+        using var stream = new MemoryStream();
+        cropped.Save(stream, ImageFormat.Png);
+        return stream.ToArray();
+    }
+
+    private static byte[] CropContextToPng(Bitmap full, Rectangle contextRectangle)
+    {
+        using var cropped = full.Clone(contextRectangle, PixelFormat.Format32bppArgb);
         using var stream = new MemoryStream();
         cropped.Save(stream, ImageFormat.Png);
         return stream.ToArray();

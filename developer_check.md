@@ -8,3 +8,4 @@ dotnet clean .\RealtimeTranslateCodex.sln -c Release
 dotnet build .\RealtimeTranslateCodex.sln -c Release
 Start-Process .\src\RealtimeTranslate.App\bin\Release\net8.0-windows10.0.19041.0\RealtimeTranslate.App.exe
 ```
+

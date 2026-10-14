@@ -1,0 +1,23 @@
+[
+  { "index": 100, "expectedText": "license", "expectedSense": "许可证" },
+  { "index": 200, "expectedText": "parrot", "expectedSense": "鹦鹉" },
+  { "index": 500, "expectedText": "frail", "expectedSense": "脆弱" },
+  { "index": 600, "expectedText": "hopscotch", "expectedSense": "跳房子" },
+  { "index": 700, "expectedText": "calamity", "expectedSense": "灾难" },
+  { "index": 187, "expectedText": "sarcasm", "expectedSense": "讽刺" },
+  { "index": 281, "expectedText": "golems", "expectedSense": "机器人" },
+  { "index": 563, "expectedText": "staunch", "expectedSense": "忠实" },
+  { "index": 657, "expectedText": "neglected", "expectedSense": "被忽视" },
+  { "index": 751, "expectedText": "fortress", "expectedSense": "城堡" },
+  { "index": 799, "expectedText": "dome", "expectedSense": "圆顶" },
+  { "index": 845, "expectedText": "exquisite", "expectedSense": "精致" },
+  { "index": 939, "expectedText": "thrust", "expectedOutcome": "abstain" },
+  { "index": 1027, "expectedText": "crack", "expectedSense": "第一流的" },
+  { "index": 1028, "expectedText": "burden", "expectedSense": "负担" },
+  { "index": 1029, "expectedText": "limp", "expectedSense": "无力的" },
+  { "index": 1030, "expectedText": "attendant", "expectedOutcome": "abstain" },
+  { "index": 1090, "expectedText": "concealed", "expectedSense": "隐匿" },
+  { "index": 1122, "expectedText": "shelter", "expectedOutcome": "abstain" },
+  { "index": 1123, "expectedText": "bark", "expectedOutcome": "abstain" },
+  { "index": 1127, "expectedText": "bark", "expectedSense": "吠" }
+]

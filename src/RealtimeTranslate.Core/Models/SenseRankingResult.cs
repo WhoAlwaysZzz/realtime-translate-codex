@@ -4,4 +4,8 @@ public sealed record SenseRankingResult(
     string PrimaryDefinition,
     IReadOnlyList<string> Definitions,
     bool IsConfident,
-    DictionarySense? SelectedSense = null);
+    DictionarySense? SelectedSense = null,
+    ContextTrustStatus ContextStatus = ContextTrustStatus.Unavailable)
+{
+    public bool WasContextAligned => ContextStatus == ContextTrustStatus.UsedForMeaning;
+}

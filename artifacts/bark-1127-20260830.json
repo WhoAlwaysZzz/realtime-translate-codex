@@ -1,0 +1,52 @@
+{
+  "GeneratedAt": "2026-08-29T21:05:31.6466941Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 1,
+  "MaxRunSeconds": 0,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 1,
+  "DictionaryFound": 1,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 1,
+  "OcrExact": 1,
+  "Top1SenseLabeled": 1,
+  "Top1Sense": 1,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 1
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "likely-hud",
+      "Count": 1
+    }
+  ],
+  "Results": [
+    {
+      "Index": 1127,
+      "SourceWord": "bark",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "bark",
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 38952,
+      "ContrastRange": 255,
+      "EdgeDensity": 0.0231,
+      "GreenRatio": 0.0001,
+      "ContentClass": "likely-hud",
+      "FoundDefinition": true,
+      "ExpectedText": "bark",
+      "OcrExact": true,
+      "ExpectedSense": "吠",
+      "Top1Sense": true,
+      "Diagnostic": "ok"
+    }
+  ]
+}

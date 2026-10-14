@@ -1,0 +1,63 @@
+{
+  "GeneratedAt": "2026-08-30T19:05:32.8241828Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 1,
+  "MaxRunSeconds": 0,
+  "CandidateManifestPath": ".\\tests\\Data\\replay-candidates.json",
+  "CandidatePoolCount": 20,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 1,
+  "DictionaryFound": 1,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 1,
+  "OcrExact": 1,
+  "Top1SenseLabeled": 1,
+  "Top1Sense": 0,
+  "ContextLabeled": 1,
+  "ContextTop1Sense": 0,
+  "AbstentionLabeled": 0,
+  "Abstained": 0,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 1
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "text-like",
+      "Count": 1
+    }
+  ],
+  "Results": [
+    {
+      "Index": 1027,
+      "SourceWord": "crack",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "crack",
+      "ContextText": "Admiral Igor Our Second Lieutenant Lopera is a hot. I trained her to be nothing less. Yet, no soldier of Zeno would take pride in an execution.",
+      "ContextAvailable": true,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 8505,
+      "ContrastRange": 207,
+      "EdgeDensity": 0.0908,
+      "GreenRatio": 0.0,
+      "ContentClass": "text-like",
+      "FoundDefinition": true,
+      "ExpectedText": "crack",
+      "OcrExact": true,
+      "ExpectedSense": "第一流的",
+      "Top1Sense": false,
+      "ExpectedOutcome": "",
+      "PrimaryDefinition": "无法确定：① n. 裂缝、爆裂声  ② v. (使)爆裂、(使)裂开、(使)发出爆裂声",
+      "Abstained": null,
+      "Diagnostic": "ok"
+    }
+  ]
+}

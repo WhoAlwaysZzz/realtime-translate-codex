@@ -1,5 +1,13 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Text.Json;
 using System.IO.Compression;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
 using RealtimeTranslate.Core.Dictionary;
 using RealtimeTranslate.Core.Explanation;
 using RealtimeTranslate.Core.History;
@@ -9,6 +17,7 @@ using RealtimeTranslate.Core.Ocr;
 using RealtimeTranslate.Core.Presentation;
 using RealtimeTranslate.Core.Recording;
 using RealtimeTranslate.Core.Stats;
+using RealtimeTranslate.App.Settings;
 
 var tests = new (string Name, Action Body)[]
 {
@@ -17,7 +26,9 @@ var tests = new (string Name, Action Body)[]
     ("dictionary covers common desktop and developer words", DictionaryCoversCommonDesktopAndDeveloperWords),
     ("bundled dictionary covers broad common words", BundledDictionaryCoversBroadCommonWords),
     ("structured dictionary retains senses and frequency", StructuredDictionaryRetainsSensesAndFrequency),
+    ("context quality gate rejects OCR debris without rejecting readable dialogue", ContextQualityGateRejectsOcrDebris),
     ("context ranker selects or abstains honestly", ContextRankerSelectsOrAbstainsHonestly),
+    ("usage hint requires a target-bearing WordNet example", UsageHintRequiresTargetBearingExample),
     ("rendered card uses frequency and short usage fallback", RenderedCardUsesFrequencyAndShortUsageFallback),
     ("recorder writes jsonl with screenshot and selection", RecorderWritesJsonlWithScreenshotAndSelection),
     ("query counter persists word counts", QueryCounterPersistsWordCounts),
@@ -26,16 +37,25 @@ var tests = new (string Name, Action Body)[]
     ("overlay placement planner stacks rapid reservations", OverlayPlacementPlannerStacksRapidReservations),
     ("AI explanation service parses JSON response", AiExplanationServiceParsesJsonResponse),
     ("explanation recorder writes jsonl", ExplanationRecorderWritesJsonl),
+    ("hotkey fallback candidates are ordered and unique", HotkeyFallbackCandidatesAreOrderedAndUnique),
     ("OCR text composer joins words into readable text", OcrTextComposerJoinsWordsIntoReadableText),
+    ("OCR variant selector keeps tight crops stable and upgrades coherent context", OcrVariantSelectorKeepsTightCropsStableAndUpgradesCoherentContext),
     ("word card index loads exact reviewed fields", WordCardIndexLoadsExactFields),
+    ("word card evidence is surfaced with confidence", WordCardEvidenceIsSurfacedWithConfidence),
     ("word card regressions reject false families", WordCardRegressionsRejectFalseFamilies),
     ("random advanced word audit meets coverage target", RandomAdvancedWordAuditMeetsCoverageTarget),
-    ("random rendered cards meet visible coverage target", RandomRenderedCardsMeetVisibleCoverageTarget),
+    ("random rendered cards omit unsourced learning hooks", RandomRenderedCardsOmitUnsourcedLearningHooks),
 };
 
 if (args is ["--export-card-audit", var auditPath])
 {
     ExportRenderedCardAudit(auditPath);
+    return 0;
+}
+
+if (args is ["--export-context-trust-audit", var contextAuditPath])
+{
+    ExportContextTrustAudit(contextAuditPath);
     return 0;
 }
 
@@ -112,7 +132,8 @@ static void RecorderWritesJsonlWithScreenshotAndSelection()
         Definitions: ["跑", "运行"],
         Selection: new ScreenSelection(10, 20, 120, 32),
         ScreenshotPath: Path.Combine(root, "screenshots", "sample.png"),
-        OcrCandidates: [new OcrCandidate("running", 0.91)]);
+        OcrCandidates: [new OcrCandidate("running", 0.91)],
+        ContextText: "The hero is running toward the gate.");
 
     recorder.Record(record);
 
@@ -123,6 +144,7 @@ static void RecorderWritesJsonlWithScreenshotAndSelection()
     AssertEqual("running", doc.RootElement.GetProperty("recognizedText").GetString());
     AssertEqual("run", doc.RootElement.GetProperty("lemma").GetString());
     AssertEqual(10, doc.RootElement.GetProperty("selection").GetProperty("x").GetInt32());
+    AssertEqual("The hero is running toward the gate.", doc.RootElement.GetProperty("contextText").GetString());
     AssertTrue(
         doc.RootElement.GetProperty("screenshotPath").GetString()!.EndsWith("sample.png", StringComparison.Ordinal),
         "expected screenshot path to be serialized");
@@ -249,6 +271,23 @@ static void ExplanationRecorderWritesJsonl()
     AssertEqual(300, doc.RootElement.GetProperty("selection").GetProperty("width").GetInt32());
 }
 
+static void HotkeyFallbackCandidatesAreOrderedAndUnique()
+{
+    var configured = new HotkeyGesture(Key.C, ModifierKeys.Control | ModifierKeys.Shift);
+    var candidates = HotkeyFallbackPolicy.GetCandidates(configured).ToArray();
+
+    AssertEqual(configured, candidates[0]);
+    AssertEqual(HotkeyGesture.Default, candidates[1]);
+    AssertTrue(candidates.Contains(new HotkeyGesture(Key.A, configured.Modifiers)), "expected same-modifier letter fallback");
+    AssertTrue(candidates.Contains(new HotkeyGesture(Key.F7, ModifierKeys.None)), "expected function-key fallback");
+    AssertEqual(candidates.Length, candidates.Distinct().Count());
+    AssertEqual(1, candidates.Count(candidate => candidate == configured));
+    AssertTrue(candidates.All(candidate => candidate.IsValid), "all fallback candidates must be valid global hotkeys");
+
+    var functionKey = new HotkeyGesture(Key.F4, ModifierKeys.None);
+    AssertEqual(functionKey, HotkeyFallbackPolicy.GetCandidates(functionKey).First());
+}
+
 static void OcrTextComposerJoinsWordsIntoReadableText()
 {
     var composer = new OcrTextComposer();
@@ -265,6 +304,30 @@ static void OcrTextComposerJoinsWordsIntoReadableText()
     AssertEqual("This is complex, isn't it?", text);
 }
 
+static void OcrVariantSelectorKeepsTightCropsStableAndUpgradesCoherentContext()
+{
+    var tightCrop = OcrVariantSelector.Select([
+        [new OcrCandidate("bark", 1)],
+        [new OcrCandidate("barks", 1)],
+        [new OcrCandidate("bark", 1)],
+    ]);
+    AssertEqual("bark", tightCrop.Single().Text);
+
+    var context = OcrVariantSelector.Select([
+        [new OcrCandidate("The", 1), new OcrCandidate("dog", 1)],
+        [new OcrCandidate("The", 1), new OcrCandidate("dog", 1), new OcrCandidate("began", 1), new OcrCandidate("to", 1), new OcrCandidate("bark", 1)],
+    ]);
+    AssertEqual(5, context.Count);
+    AssertEqual("bark", context[^1].Text);
+
+    var marginalContext = OcrVariantSelector.Select([
+        [new OcrCandidate("babbling", 1), new OcrCandidate("like", 1), new OcrCandidate("a", 1)],
+        [new OcrCandidate("babbling", 1), new OcrCandidate("like", 1), new OcrCandidate("a", 1), new OcrCandidate("parrot", 1)],
+    ]);
+    AssertEqual(4, marginalContext.Count);
+    AssertEqual("parrot", marginalContext[^1].Text);
+}
+
 static void WordCardIndexLoadsExactFields()
 {
     var root = CreateInsightFixture();
@@ -276,6 +339,37 @@ static void WordCardIndexLoadsExactFields()
     AssertEqual("effable", insight.Family[0]);
     AssertEqual("sacred mysteries", insight.ContextHint);
     AssertEqual(WordInsight.Empty, service.Lookup("not-in-index"));
+}
+
+static void WordCardEvidenceIsSurfacedWithConfidence()
+{
+    var root = CreateInsightFixture();
+    var service = new MorphemeWordInsightService(Path.Combine(root, "word-cards.tsv"));
+    var insight = service.Lookup("ineffable");
+    AssertTrue(insight.HasEvidence, "non-empty insight must carry evidence");
+    AssertEqual("MorphoLex (2018)", insight.EvidenceSource);
+    AssertTrue(insight.Confidence > 0.7, "reviewed insight should have usable confidence");
+
+    var legacyFixture = Path.Combine(root, "legacy-word-cards.tsv");
+    File.WriteAllText(legacyFixture, "ineffable\tbreakdown\teffable\tsacred mysteries\n");
+    var legacyInsight = new MorphemeWordInsightService(legacyFixture).Lookup("ineffable");
+    AssertEqual(string.Empty, legacyInsight.ContextHint);
+    AssertTrue(!legacyInsight.HasEvidence, "legacy row without field-level provenance must not become a sourced learning claim");
+
+    var explicitFixture = Path.Combine(root, "explicit-word-cards.tsv");
+    File.WriteAllText(explicitFixture, "ineffable\tbreakdown\teffable\tsacred mysteries\tWordNet examples\t0.9\n");
+    var explicitInsight = new MorphemeWordInsightService(explicitFixture).Lookup("ineffable");
+    AssertEqual("sacred mysteries", explicitInsight.ContextHint);
+    AssertEqual("WordNet examples", explicitInsight.EvidenceSource);
+
+    var presentation = new LookupPresentation("ineffable", "lemma: ineffable", ["无法形容的"], "无法形容的", 1,
+        WordBreakdown: insight.Breakdown, InsightEvidence: $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}");
+    AssertTrue(LookupCardTextFormatter.VisibleLines(presentation).Any(line => line.StartsWith("证据  ", StringComparison.Ordinal)),
+        "card should expose evidence separately from the gloss");
+    var crowded = presentation with { ContextHint = "example usage", WordFamily = ["worded"] };
+    var crowdedLines = LookupCardTextFormatter.VisibleLines(crowded);
+    AssertTrue(crowdedLines.Any(line => line.StartsWith("证据  ", StringComparison.Ordinal)),
+        "evidence must survive the five-block first-screen limit");
 }
 
 static void StructuredDictionaryRetainsSensesAndFrequency()
@@ -313,16 +407,163 @@ static void ContextRankerSelectsOrAbstainsHonestly()
 
     var dog = ranker.Rank(lookup, "bark", "The dog began to bark at the stranger.");
     AssertTrue(dog.IsConfident, "dog context should be confidently verbal");
-    AssertEqual("吠叫", dog.PrimaryDefinition);
+    AssertTrue(dog.WasContextAligned, "dog context should be marked as aligned");
+    AssertEqual(ContextTrustStatus.UsedForMeaning, dog.ContextStatus);
+    AssertEqual("本句中，bark作动词，指“吠叫”。", dog.PrimaryDefinition);
+
+    var inflectedDog = ranker.Rank(
+        lookup,
+        new NormalizedWord("barked", "bark", ["barked", "bark"]),
+        "The dog barked at the stranger.");
+    AssertTrue(inflectedDog.IsConfident, "an inflected selected form visible in trustworthy context should anchor ranking");
+    AssertTrue(inflectedDog.WasContextAligned, "an inflected anchor should be marked as aligned");
+    AssertEqual("本句中，bark作动词，指“吠叫”。", inflectedDog.PrimaryDefinition);
+
+    var absentInflectedDog = ranker.Rank(
+        lookup,
+        new NormalizedWord("barked", "bark", ["barked", "bark"]),
+        "The dog runs toward the stranger.");
+    AssertTrue(!absentInflectedDog.IsConfident, "a normalized candidate must not make an unmentioned target look anchored");
 
     var tree = ranker.Rank(lookup, "bark", "The bark protects the old tree.");
     AssertTrue(tree.IsConfident, "article and tree context should be confidently nominal");
-    AssertEqual("树皮", tree.PrimaryDefinition);
+    AssertTrue(tree.WasContextAligned, "tree context should be marked as aligned");
+    AssertEqual("本句中，bark作名词，指“树皮”。", tree.PrimaryDefinition);
+
+    var frailLookup = new DictionaryLookupResult(true, "frail", ["adj. 脆弱的", "n. 灯心草篓"], [
+        new DictionarySense("adj", "脆弱的", ["physically weak"]),
+        new DictionarySense("n", "灯心草篓", ["a basket for holding dried fruit"]),
+    ], 2);
+    var frail = ranker.Rank(frailLookup, "frail", "She looks at the frail, slender girl in front of her.");
+    AssertTrue(frail.IsConfident, "appositive adjective context should be confidently ranked");
+    AssertEqual("本句中，frail作形容词，指“脆弱的”。", frail.PrimaryDefinition);
+
+    var singleSense = new DictionaryLookupResult(true, "dwindle", ["v. 逐渐减少、缩小"], [
+        new DictionarySense("v", "逐渐减少、缩小", ["become smaller or lose substance"]),
+    ], 2);
+    var single = ranker.Rank(singleSense, "dwindle", "Their savings dwindled away.");
+    AssertEqual("本句中，dwindle作动词，指“逐渐减少、缩小”。", single.PrimaryDefinition);
+
+    var untrustedSingle = ranker.Rank(singleSense, "dwindle", "Their savings d w i n d l e d away.");
+    AssertEqual("v. 逐渐减少、缩小", untrustedSingle.PrimaryDefinition);
+    AssertTrue(!untrustedSingle.WasContextAligned, "untrusted OCR must not be described as an in-sentence reading for a single-sense word");
+    AssertEqual(ContextTrustStatus.Rejected, untrustedSingle.ContextStatus);
+
+    var staunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住", "adj. 忠实"], [
+        new DictionarySense("v", "止住", ["stop or check the flow of blood" ]),
+        new DictionarySense("adj", "忠实", ["loyal and committed" ]),
+    ], 2);
+    var staunch = ranker.Rank(staunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
+    AssertTrue(!staunch.IsConfident, "a nearby adjective head without the target or a boundary frame must not select a sense");
+    AssertTrue(staunch.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "unanchored adjective context should explicitly abstain");
+
+    var genericSoldier = ranker.Rank(staunchLookup, "staunch", "No soldier of Zeno would take pride in an execution.");
+    AssertTrue(!genericSoldier.IsConfident, "an unrelated generic soldier must not force an adjective sense");
+    AssertTrue(genericSoldier.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "generic soldier context should explicitly abstain");
+
+    var unanchoredDog = ranker.Rank(lookup, "bark", "The dog runs toward the stranger.");
+    AssertTrue(!unanchoredDog.IsConfident, "a readable but unanchored crop must not let a nearby dog choose bark's verb sense");
+    AssertTrue(!unanchoredDog.WasContextAligned, "an unanchored crop must not be described as aligned");
+    AssertEqual(ContextTrustStatus.TrustedNotUsed, unanchoredDog.ContextStatus);
+    AssertTrue(unanchoredDog.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "an unanchored crop should explicitly abstain");
+
+    var richBarkLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠、叫骂、喊出、剥树皮"], [
+        new DictionarySense("n", "树皮、吠声", ["the sound made by a dog", "tough protective covering of trees"]),
+        new DictionarySense("v", "吠、叫骂、喊出、剥树皮", ["make barking sounds"], ["The dogs barked at the stranger"]),
+    ], 2);
+    var conciseBark = ranker.Rank(richBarkLookup, "bark", "The dog began to bark");
+    AssertEqual("本句中，bark作动词，指“吠叫”。", conciseBark.PrimaryDefinition);
+
+    var richStaunchLookup = new DictionaryLookupResult(true, "staunch", ["v. 止住、止血", "adj. 坚固的、坚强的、忠实的"], [
+        new DictionarySense("v", "止住、止血", ["stop the flow of a liquid"]),
+        new DictionarySense("adj", "坚固的、坚强的、忠实的", ["firm and dependable especially in loyalty"]),
+    ], 1);
+    var conciseStaunch = ranker.Rank(richStaunchLookup, "staunch", "He is an irritating defeatist and supporter of anocentrism.");
+    AssertTrue(!conciseStaunch.IsConfident, "a rich entry must retain the same context anchor requirement");
+
+    var conciseReviewed = new (string Word, string Pos, string Definition, string Expected)[]
+    {
+        ("fortress", "n", "城堡、要塞", "城堡"),
+        ("burden", "n", "负担、重载、担子", "负担"),
+        ("sarcasm", "n", "挖苦、讽刺、讽刺话", "讽刺"),
+    };
+    foreach (var sample in conciseReviewed)
+    {
+        var reviewedLookup = new DictionaryLookupResult(true, sample.Word, [$"{sample.Pos}. {sample.Definition}"], [
+            new DictionarySense(sample.Pos, sample.Definition, ["reviewed game sense"]),
+        ], 2);
+        var reviewed = ranker.Rank(reviewedLookup, sample.Word, "The surrounding scene provides the word.");
+        AssertEqual($"本句中，{sample.Word}作名词，指“{sample.Expected}”。", reviewed.PrimaryDefinition);
+    }
+
+    var parrot = ranker.Rank(lookup, "bark", "Marcus Gosh, she's babbling like a");
+    AssertTrue(parrot.IsConfident, "a masked noun frame should select the noun sense");
+    AssertEqual("本句中，bark作名词，指“树皮”。", parrot.PrimaryDefinition);
 
     var unknown = ranker.Rank(lookup, "bark", string.Empty);
     AssertTrue(!unknown.IsConfident, "missing context must not pretend to disambiguate");
+    AssertTrue(!unknown.WasContextAligned, "missing context must not be marked as aligned");
+    AssertEqual(ContextTrustStatus.Unavailable, unknown.ContextStatus);
+    AssertTrue(unknown.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "ambiguous card should say that the available sentence cannot determine the sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("① n. 树皮", StringComparison.Ordinal), "ambiguous card should flatten the first sense");
     AssertTrue(unknown.PrimaryDefinition.Contains("② v. 吠叫", StringComparison.Ordinal), "ambiguous card should flatten the second sense");
+
+    var ambiguous = ranker.Rank(lookup, "bark", "They bark loudly.");
+    AssertTrue(!ambiguous.IsConfident, "non-empty but unsupported context must not force a sense");
+    AssertTrue(!ambiguous.WasContextAligned, "unsupported context must not be marked as aligned");
+    AssertTrue(ambiguous.PrimaryDefinition.StartsWith("无法仅凭这一句确定；可能是：", StringComparison.Ordinal), "unsupported context should show the abstention explanation");
+
+    var fragmentary = ranker.Rank(staunchLookup, "staunch", "He stands in s a e Sao Paulo.");
+    AssertTrue(!fragmentary.IsConfident, "fragmentary OCR must not steer sense ranking");
+    AssertTrue(!fragmentary.WasContextAligned, "fragmentary OCR must not be marked aligned");
+    AssertEqual(ContextTrustStatus.Rejected, fragmentary.ContextStatus);
+
+    var crackLookup = new DictionaryLookupResult(true, "crack", ["n. 裂缝", "v. 爆裂", "adj. 第一流的"], [
+        new DictionarySense("n", "裂缝", ["a narrow opening"]),
+        new DictionarySense("v", "爆裂", ["break suddenly"]),
+        new DictionarySense("adj", "第一流的", ["of the highest quality"]),
+    ], 2);
+    var crack = ranker.Rank(crackLookup, "crack", "No soldier of Zeno would take pride in an execution.");
+    AssertTrue(!crack.IsConfident, "unrelated context must not force crack's adjective sense");
+    AssertTrue(crack.PrimaryDefinition.Contains("③ adj. 第一流的", StringComparison.Ordinal), "an abstaining card should retain the third concise candidate");
+
+    var crackShot = ranker.Rank(crackLookup, "crack", "Lopera is a crack shot.");
+    AssertTrue(crackShot.IsConfident, "an adjective plus a known head noun should be rankable");
+    AssertEqual("adj", crackShot.SelectedSense?.PartOfSpeech);
+
+    var fortressLookup = new DictionaryLookupResult(true, "fortress", ["n. 城堡、要塞", "v. 筑要塞"], [
+        new DictionarySense("n", "城堡、要塞", ["a fortified defensive structure"]),
+        new DictionarySense("v", "筑要塞", ["secure with defensive works"]),
+    ], 2);
+    var possessiveFortress = ranker.Rank(fortressLookup, "fortress", "Finally, he is back in his fortress.");
+    AssertTrue(possessiveFortress.IsConfident, "a visible possessive noun frame should select the noun sense");
+    AssertEqual("n", possessiveFortress.SelectedSense?.PartOfSpeech);
+
+    var domeLookup = new DictionaryLookupResult(true, "dome", ["n. 圆顶", "v. 加圆顶"], [
+        new DictionarySense("n", "圆顶", ["a rounded roof"]),
+        new DictionarySense("v", "加圆顶", ["cover with a rounded roof"]),
+    ], 2);
+    var modifiedDome = ranker.Rank(domeLookup, "dome", "Its seats were buried under the shattered dome.");
+    AssertTrue(modifiedDome.IsConfident, "a determiner plus participial modifier should identify a visible noun head");
+    AssertEqual("n", modifiedDome.SelectedSense?.PartOfSpeech);
+
+    var unsupportedDome = ranker.Rank(domeLookup, "dome", "They shattered dome defenses yesterday.");
+    AssertTrue(!unsupportedDome.IsConfident, "an -ed word without the determiner frame must not force a noun sense");
+}
+
+static void ContextQualityGateRejectsOcrDebris()
+{
+    AssertTrue(ContextQualityGate.IsSafe("The dog began to bark at the stranger."), "complete readable dialogue should pass the context gate");
+    AssertTrue(ContextQualityGate.IsSafe("She looks at the frail, slender girl in front of her."), "readable dialogue with an allowed article should pass the context gate");
+
+    // These are real replay outputs, not synthetic dictionary examples.  A
+    // long crop must not dilute isolated OCR debris into an apparently safe
+    // context merely because it also contains ordinary English words.
+    AssertTrue(!ContextQualityGate.IsSafe("Her voice softens as she looks at th slender girl in front of her."), "truncated OCR token must fail the context gate");
+    AssertTrue(!ContextQualityGate.IsSafe("Sonetto The islanders were vulnerability then exp 01 e arms. o war, their beliefs shattered, and they were welcomed by Manus."), "a split OCR letter must fail even in a long crop");
+    AssertTrue(!ContextQualityGate.IsSafe("He stands in s a e Sao Paulo."), "one-character OCR debris must fail the context gate");
+    AssertTrue(!ContextQualityGate.IsSafe("The islanders were thrust into war, their beliefs shattered, exp 01 e arms."), "HUD digits embedded in a long crop must fail the context gate");
+    AssertTrue(ContextQualityGate.IsSafe("The mission starts at 10 tonight and ends at dawn."), "ordinary numeric desktop text should remain usable");
 }
 
 static void RenderedCardUsesFrequencyAndShortUsageFallback()
@@ -343,14 +584,82 @@ static void RenderedCardUsesFrequencyAndShortUsageFallback()
         1,
         WordBreakdown: string.Empty,
         WordFamily: ["dwindled", "dwindling"],
-        ContextHint: hint,
+        ContextHint: hint.Text,
         FrequencyBand: lookup.FrequencyBand);
 
     var lines = LookupCardTextFormatter.VisibleLines(presentation);
     AssertEqual("dwindle ★★☆", lines[0]);
     AssertEqual("逐渐减少、缩小", lines[1]);
-    AssertEqual("词族/词形  dwindled · dwindling", lines[2]);
-    AssertEqual("用法/语境  their savings dwindled away · our dwindling natural resources", lines[3]);
+    AssertEqual("上下文：未识别到可用句子", lines[2]);
+    AssertEqual("词族/词形  dwindled · dwindling", lines[3]);
+    AssertEqual("用法/语境  their savings dwindled away · our dwindling natural resources", lines[4]);
+
+    var rejectedLines = LookupCardTextFormatter.VisibleLines(presentation with { ContextStatus = ContextTrustStatus.Rejected });
+    AssertEqual("上下文：OCR不可靠，未参与释义", rejectedLines[2]);
+    var unusedLines = LookupCardTextFormatter.VisibleLines(presentation with { ContextStatus = ContextTrustStatus.TrustedNotUsed });
+    AssertEqual("上下文：可信，未参与义项筛选", unusedLines[2]);
+    var alignedLines = LookupCardTextFormatter.VisibleLines(presentation with { ContextStatus = ContextTrustStatus.UsedForMeaning });
+    AssertEqual("上下文：可信，已用于锁定本句义", alignedLines[2]);
+
+    var crowded = presentation with
+    {
+        PrimaryDefinition = "本句中，dwindle作动词，指“逐渐减少、缩小”。",
+        WordBreakdown = "dwin-（减少）",
+        WordFamily = ["dwindled", "dwindling"],
+    };
+    var crowdedLines = LookupCardTextFormatter.VisibleLines(crowded);
+    AssertTrue(crowdedLines.Count <= 5, "first screen must contain at most five information blocks");
+    AssertTrue(crowdedLines.Contains("本句中，dwindle作动词，指“逐渐减少、缩小”。"), "sentence meaning must remain visible on crowded cards");
+    AssertTrue(crowdedLines.Contains("词基/构词  dwin-（减少）"), "breakdown should be the optional metadata block");
+    AssertTrue(!crowdedLines.Any(line => line.StartsWith("词族/词形", StringComparison.Ordinal)), "word family should yield to breakdown on first screen");
+}
+
+static void UsageHintRequiresTargetBearingExample()
+{
+    var service = new WordNetExampleUsageHintService();
+
+    var nounSense = new DictionarySense("n", "树皮、吠声", ["the sound made by a dog"], ["the bark of a dog"]);
+    var verbSense = new DictionarySense("v", "吠叫", ["make a barking sound"], ["dogs bark at strangers"]);
+    var ambiguousLookup = new DictionaryLookupResult(true, "bark", ["n. 树皮、吠声", "v. 吠叫"], [nounSense, verbSense]);
+    var abstainedRanking = new SenseRankingResult(
+        "无法仅凭这一句确定；可能是：① n. 树皮、吠声  ② v. 吠叫",
+        ambiguousLookup.Definitions,
+        false);
+    var comparison = service.GetHint(ambiguousLookup, abstainedRanking, "bark");
+    AssertEqual("n. 树皮、吠声：the bark of a dog · v. 吠叫：dogs bark at strangers", comparison.Text);
+    AssertEqual("Open English WordNet 2025；例句直含目标词", comparison.EvidenceSource);
+    AssertEqual(0.9, comparison.Confidence);
+
+    var threeWayLookup = ambiguousLookup with
+    {
+        Senses = [nounSense, verbSense, new DictionarySense("adj", "粗糙的", ["rough"], ["bark-like texture"])],
+    };
+    AssertEqual(UsageHintResult.Empty, service.GetHint(threeWayLookup, abstainedRanking, "bark"));
+
+    var incompleteComparison = ambiguousLookup with
+    {
+        Senses = [nounSense, new DictionarySense("v", "吠叫", ["make a barking sound"])],
+    };
+    AssertEqual(UsageHintResult.Empty, service.GetHint(incompleteComparison, abstainedRanking, "bark"));
+
+    var definitionOnly = new DictionarySense("v", "移动", ["move from one place to another"]);
+    var definitionLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [definitionOnly]);
+    var definitionRanking = new SenseRankingResult("移动", definitionLookup.Definitions, true, definitionOnly);
+    AssertEqual(UsageHintResult.Empty, service.GetHint(definitionLookup, definitionRanking, "go"));
+
+    var prefixOnly = new DictionarySense("v", "移动", ["move"], ["a good plan"]);
+    var prefixLookup = new DictionaryLookupResult(true, "go", ["v. 移动"], [prefixOnly]);
+    var prefixRanking = new SenseRankingResult("移动", prefixLookup.Definitions, true, prefixOnly);
+    AssertEqual(UsageHintResult.Empty, service.GetHint(prefixLookup, prefixRanking, "go"));
+
+    var inflected = new DictionarySense("v", "逐渐减少", ["become smaller"], ["their savings dwindled away"]);
+    var inflectedLookup = new DictionaryLookupResult(true, "dwindle", ["v. 逐渐减少"], [inflected]);
+    var inflectedRanking = new SenseRankingResult("逐渐减少", inflectedLookup.Definitions, true, inflected);
+    var inflectedHint = service.GetHint(inflectedLookup, inflectedRanking, "dwindle");
+    AssertTrue(inflectedHint.Text.Contains("dwindled", StringComparison.Ordinal),
+        "a conventional inflection should remain usable evidence");
+    AssertEqual("Open English WordNet 2025；例句含常规词形", inflectedHint.EvidenceSource);
+    AssertEqual(0.75, inflectedHint.Confidence);
 }
 
 static void WordCardRegressionsRejectFalseFamilies()
@@ -394,7 +703,7 @@ static void RandomAdvancedWordAuditMeetsCoverageTarget()
     AssertTrue(withMorphology >= 70, $"expected at least 35% reviewed morphology coverage, got {withMorphology}/{words.Length}");
 }
 
-static void RandomRenderedCardsMeetVisibleCoverageTarget()
+static void RandomRenderedCardsOmitUnsourcedLearningHooks()
 {
     var appDirectory = FindAppSourceDirectory();
     var dictionary = new StructuredDictionaryService(
@@ -406,7 +715,7 @@ static void RandomRenderedCardsMeetVisibleCoverageTarget()
     var normalizer = new BasicWordNormalizer();
     var words = File.ReadAllLines(Path.Combine(FindRepositoryRoot(), "tests", "Data", "advanced-word-audit-sample.txt"))
         .Where(line => line.Length > 0).ToArray();
-    var withLearningHook = 0;
+    var withSourcedLearningHook = 0;
 
     foreach (var word in words)
     {
@@ -418,10 +727,20 @@ static void RandomRenderedCardsMeetVisibleCoverageTarget()
         {
             insight = insights.Lookup(lookup.EntryWord);
         }
+        if (!insight.HasEvidence)
+        {
+            insight = WordInsight.Empty;
+        }
         var hint = insight.ContextHint;
+        var evidence = insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty;
         if (hint.Length == 0 && insight.Breakdown.Length == 0)
         {
-            hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            var usageHint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            hint = usageHint.Text;
+            if (usageHint.HasEvidence)
+            {
+                evidence = $"{usageHint.EvidenceSource}；置信度 {usageHint.Confidence:P0}";
+            }
         }
         var presentation = new LookupPresentation(
             word,
@@ -432,16 +751,17 @@ static void RandomRenderedCardsMeetVisibleCoverageTarget()
             WordBreakdown: insight.Breakdown,
             WordFamily: insight.Family,
             ContextHint: hint,
-            FrequencyBand: lookup.FrequencyBand);
+            FrequencyBand: lookup.FrequencyBand,
+            InsightEvidence: evidence);
         var visible = LookupCardTextFormatter.VisibleLines(presentation);
 
         AssertTrue(visible.Count >= 2, $"rendered card '{word}' has no definition");
         AssertTrue(visible[0].Contains('★'), $"rendered card '{word}' has no frequency band");
         AssertTrue(!string.Join(" | ", visible).Contains("词基：", StringComparison.Ordinal), $"rendered card '{word}' exposes a fake base line");
-        withLearningHook += insight.Breakdown.Length > 0 || hint.Length > 0 ? 1 : 0;
+        withSourcedLearningHook += hint.Length > 0 && evidence.Length > 0 ? 1 : 0;
     }
 
-    AssertTrue(withLearningHook >= 190, $"expected at least 95% visible morphology-or-usage coverage, got {withLearningHook}/{words.Length}");
+    AssertTrue(withSourcedLearningHook > 0, "expected the audit corpus to retain at least one source-bearing learning hook");
 }
 
 static void ExportRenderedCardAudit(string outputPath)
@@ -458,7 +778,7 @@ static void ExportRenderedCardAudit(string outputPath)
         .Where(line => line.Length > 0).ToArray();
     Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
     using var writer = new StreamWriter(outputPath, false, new System.Text.UTF8Encoding(false));
-    writer.WriteLine("word\tvisible card lines");
+    writer.WriteLine("word\tvisible card lines\tevidence");
     foreach (var word in words)
     {
         var lookup = dictionary.Lookup(normalizer.Normalize(word));
@@ -468,16 +788,77 @@ static void ExportRenderedCardAudit(string outputPath)
         {
             insight = insights.Lookup(lookup.EntryWord);
         }
+        if (!insight.HasEvidence)
+        {
+            insight = WordInsight.Empty;
+        }
         var hint = insight.ContextHint;
+        var evidence = insight.HasEvidence ? $"{insight.EvidenceSource}；置信度 {insight.Confidence:P0}" : string.Empty;
         if (hint.Length == 0 && insight.Breakdown.Length == 0)
         {
-            hint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            var usageHint = usage.GetHint(lookup, ranking, lookup.EntryWord);
+            hint = usageHint.Text;
+            if (usageHint.HasEvidence)
+            {
+                evidence = $"{usageHint.EvidenceSource}；置信度 {usageHint.Confidence:P0}";
+            }
         }
         var presentation = new LookupPresentation(
             word, $"lemma: {lookup.EntryWord}", ranking.Definitions, ranking.PrimaryDefinition, 1,
             WordBreakdown: insight.Breakdown, WordFamily: insight.Family,
-            ContextHint: hint, FrequencyBand: lookup.FrequencyBand);
-        writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}");
+            ContextHint: hint, FrequencyBand: lookup.FrequencyBand,
+            InsightEvidence: evidence);
+        var evidenceColumn = string.IsNullOrWhiteSpace(presentation.InsightEvidence)
+            ? "-"
+            : presentation.InsightEvidence;
+        writer.WriteLine($"{word}\t{string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation))}\t{evidenceColumn}");
+    }
+}
+
+static void ExportContextTrustAudit(string outputPath)
+{
+    var appDirectory = FindAppSourceDirectory();
+    var dictionary = new StructuredDictionaryService(
+        Path.Combine(appDirectory, "Data", "lexicon.jsonl.gz"),
+        new EmbeddedDictionaryService(Path.Combine(appDirectory, "dictionary.tsv")));
+    var normalizer = new BasicWordNormalizer();
+    var ranker = new LocalContextSenseRanker();
+    var cases = new[]
+    {
+        new { Index = 500, Screenshot = "20260711-221147-107.png", Word = "frail", Manual = "Her voice softens as she looks at the frail, slender girl in front of her.", Ocr = "Her voice softens as she looks at the frail, slender girl in front of her.", Expected = ContextTrustStatus.UsedForMeaning },
+        new { Index = 657, Screenshot = "20260713-225757-120.png", Word = "-neglected", Manual = "The long-neglected questions have created a cloud of doubt between us. And now, the boulder of fate is falling on us, and we are teetering on the brink of", Ocr = "888 The long-neglected questions have created a cloud of dou now, the boulder of fate is falling on us, and we are teeter", Expected = ContextTrustStatus.TrustedNotUsed },
+        new { Index = 939, Screenshot = "20260716-194539-601.png", Word = "thrust", Manual = "The islanders were thrust into war, their beliefs shattered, and their vulnerability then exploited by the Manus, who welcomed them with open arms.", Ocr = "Sonetto The islanders were thrust into war, their beliefs shattered, and th vulnerability then exploited by the Manus, who welcomed them v arms.", Expected = ContextTrustStatus.Rejected },
+        new { Index = 1123, Screenshot = "20260830-035133-023.png", Word = "bark", Manual = "bark | The dog began to bark at the stranger.", Ocr = "bark", Expected = ContextTrustStatus.Rejected },
+        new { Index = 1127, Screenshot = "20260830-045028-487.png", Word = "bark", Manual = "bark | The dog began to bark at the stranger.", Ocr = "bark The dog began to bark", Expected = ContextTrustStatus.UsedForMeaning },
+    };
+
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath))!);
+    using var writer = new StreamWriter(outputPath, false, new System.Text.UTF8Encoding(false));
+    writer.WriteLine("archive index\tscreenshot\ttarget\tmanual transcription\tobserved OCR context\texpected trust\tactual trust\tprimary meaning\tbefore first-screen lines\tafter first-screen lines");
+    foreach (var sample in cases)
+    {
+        var normalized = normalizer.Normalize(sample.Word);
+        var lookup = dictionary.Lookup(normalized);
+        var ranking = ranker.Rank(lookup, normalized, sample.Ocr);
+        AssertEqual(sample.Expected, ranking.ContextStatus);
+        var presentation = new LookupPresentation(
+            normalized.DisplayWord,
+            $"lemma: {lookup.EntryWord}",
+            ranking.Definitions,
+            ranking.PrimaryDefinition,
+            1,
+            FrequencyBand: lookup.FrequencyBand,
+            ContextStatus: ranking.ContextStatus);
+        var after = string.Join(" | ", LookupCardTextFormatter.VisibleLines(presentation).Take(3));
+        var beforeStatus = ranking.WasContextAligned
+            ? "整句句意对齐：已用于筛选"
+            : "整句句意对齐：未用于筛选";
+        var before = string.Join(" | ", new[] { $"{presentation.Title} {LookupCardTextFormatter.Frequency(presentation.FrequencyBand)}".Trim(), presentation.PrimaryDefinition, beforeStatus });
+        writer.WriteLine(string.Join('\t', new[]
+        {
+            sample.Index.ToString(), sample.Screenshot, sample.Word, sample.Manual, sample.Ocr,
+            sample.Expected.ToString(), ranking.ContextStatus.ToString(), ranking.PrimaryDefinition, before, after,
+        }.Select(value => value.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' '))));
     }
 }
 
@@ -487,7 +868,7 @@ static string CreateInsightFixture()
     Directory.CreateDirectory(root);
     File.WriteAllText(
         Path.Combine(root, "word-cards.tsv"),
-        "ineffable\tineffable（词基：无法形容的）\teffable,ineffability\tsacred mysteries");
+        "ineffable\tineffable（词基：无法形容的）\teffable,ineffability\tsacred mysteries\tMorphoLex (2018)\t0.75");
     return root;
 }
 

@@ -1,0 +1,52 @@
+{
+  "GeneratedAt": "2026-08-29T21:13:45.2917258Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 1,
+  "MaxRunSeconds": 0,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 1,
+  "DictionaryFound": 1,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 1,
+  "OcrExact": 1,
+  "Top1SenseLabeled": 1,
+  "Top1Sense": 1,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 1
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "text-like",
+      "Count": 1
+    }
+  ],
+  "Results": [
+    {
+      "Index": 1090,
+      "SourceWord": "concealed",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "concealed",
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 10692,
+      "ContrastRange": 210,
+      "EdgeDensity": 0.1241,
+      "GreenRatio": 0.0,
+      "ContentClass": "text-like",
+      "FoundDefinition": true,
+      "ExpectedText": "concealed",
+      "OcrExact": true,
+      "ExpectedSense": "隐匿",
+      "Top1Sense": true,
+      "Diagnostic": "ok"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "GeneratedAt": "2026-08-31T19:15:42.6125280Z",
+  "StartIndex": 0,
+  "RequestedSamples": 12,
+  "ActualSamples": 2,
+  "MaxRunSeconds": 0,
+  "CandidateManifestPath": "",
+  "CandidatePoolCount": 1131,
+  "RunTimeLimitReached": false,
+  "OcrNonEmpty": 2,
+  "DictionaryFound": 2,
+  "OcrRegressions": 0,
+  "OcrRecoveries": 0,
+  "ReplayTimeouts": 0,
+  "ReplayFailures": 0,
+  "LabeledSamples": 2,
+  "OcrExact": 2,
+  "Top1SenseLabeled": 2,
+  "Top1Sense": 1,
+  "ContextLabeled": 2,
+  "ContextTop1Sense": 1,
+  "AbstentionLabeled": 0,
+  "Abstained": 0,
+  "Diagnostics": [
+    {
+      "Name": "ok",
+      "Count": 2
+    }
+  ],
+  "InputQuality": [
+    {
+      "Name": "mixed-ui",
+      "Count": 2
+    }
+  ],
+  "Results": [
+    {
+      "Index": 751,
+      "SourceWord": "fortress.",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "fortress.",
+      "DisplayWord": "fortress",
+      "ContextText": "Finally, he is back in his fortress.",
+      "ContextAvailable": true,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 26572,
+      "ContrastRange": 208,
+      "EdgeDensity": 0.0419,
+      "GreenRatio": 0.0,
+      "ContentClass": "mixed-ui",
+      "FoundDefinition": true,
+      "ExpectedText": "fortress",
+      "OcrExact": true,
+      "ExpectedSense": "城堡",
+      "Top1Sense": true,
+      "ExpectedOutcome": "",
+      "PrimaryDefinition": "本句中，fortress作名词，指“城堡”。",
+      "Abstained": null,
+      "Diagnostic": "ok"
+    },
+    {
+      "Index": 799,
+      "SourceWord": "dome",
+      "ExitCode": 0,
+      "ReplayTimedOut": false,
+      "RecognizedText": "dome",
+      "DisplayWord": "dome",
+      "ContextText": "e, its seats buried under the shattered dome",
+      "ContextAvailable": true,
+      "Screenshot": "2560x1600",
+      "SelectionQuality": "in-bounds",
+      "CropPixels": 29336,
+      "ContrastRange": 210,
+      "EdgeDensity": 0.0345,
+      "GreenRatio": 0.0,
+      "ContentClass": "mixed-ui",
+      "FoundDefinition": true,
+      "ExpectedText": "dome",
+      "OcrExact": true,
+      "ExpectedSense": "圆顶",
+      "Top1Sense": false,
+      "ExpectedOutcome": "",
+      "PrimaryDefinition": "无法仅凭这一句确定；可能是：① n. 圆顶  ② v. 加圆顶、成圆顶状",
+      "Abstained": null,
+      "Diagnostic": "ok"
+    }
+  ]
+}

@@ -13,6 +13,7 @@ namespace RealtimeTranslate.App.Ocr;
 
 public sealed class WindowsOcrService : IOcrService
 {
+    private static readonly TimeSpan VariantTimeout = TimeSpan.FromSeconds(5);
     private readonly OcrEngine? _engine = CreateEngine();
 
     public async Task<IReadOnlyList<OcrCandidate>> RecognizeAsync(byte[] imagePng, CancellationToken cancellationToken = default)
@@ -28,18 +29,24 @@ public sealed class WindowsOcrService : IOcrService
             return [];
         }
 
-        var allCandidates = new List<OcrCandidate>();
+        var variants = new List<IReadOnlyList<OcrCandidate>>();
         foreach (var variant in CreateImageVariants(imagePng))
         {
-            var candidates = await RecognizeVariantAsync(engine, variant, cancellationToken);
-            AddUniqueCandidates(allCandidates, candidates);
-            if (allCandidates.Count > 0)
+            IReadOnlyList<OcrCandidate> candidates;
+            try
             {
-                return allCandidates;
+                candidates = await RecognizeVariantAsync(engine, variant, cancellationToken)
+                    .WaitAsync(VariantTimeout, cancellationToken);
             }
+            catch (TimeoutException)
+            {
+                // A malformed or unusually large crop must not stall the whole lookup.
+                continue;
+            }
+            variants.Add(candidates);
         }
 
-        return allCandidates;
+        return OcrVariantSelector.Select(variants);
     }
 
     private static async Task<IReadOnlyList<OcrCandidate>> RecognizeVariantAsync(
@@ -151,17 +158,6 @@ public sealed class WindowsOcrService : IOcrService
         using var stream = new MemoryStream();
         bitmap.Save(stream, ImageFormat.Png);
         return stream.ToArray();
-    }
-
-    private static void AddUniqueCandidates(List<OcrCandidate> target, IReadOnlyList<OcrCandidate> candidates)
-    {
-        foreach (var candidate in candidates)
-        {
-            if (!target.Any(existing => string.Equals(existing.Text, candidate.Text, StringComparison.OrdinalIgnoreCase)))
-            {
-                target.Add(candidate);
-            }
-        }
     }
 
     private static OcrEngine? CreateEngine()
